@@ -7,10 +7,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Diretório raiz do projeto ───────────────────────────────────────────────
+# BASE_DIR aponta para a pasta sismjp-webservice/ (pai de config/)
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).parent
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _resolver_caminho(valor: str, padrao_relativo: Path) -> Path:
+    """
+    Resolve um caminho de configuração:
+      - Se vazio → usa padrao_relativo (relativo a BASE_DIR)
+      - Se relativo → resolve em relação a BASE_DIR
+      - Se absoluto → usa como está
+
+    Isso permite que o .env use tanto caminhos relativos simples
+    ("certs/contador.pfx") quanto caminhos absolutos quando necessário.
+    """
+    if not valor:
+        return padrao_relativo
+    p = Path(valor)
+    return p if p.is_absolute() else BASE_DIR / p
+
 
 # ── Webservice SISMJP ───────────────────────────────────────────────────────
 WEBSERVICE_URL_PROD = "https://sispmjp.joaopessoa.pb.gov.br:8443/sispmjp/NfseWSService"
@@ -25,15 +43,25 @@ ABRASF_VERSION = "2.03"
 # Código IBGE de João Pessoa-PB
 CODIGO_MUNICIPIO = "2507507"
 
-# ── Certificado Digital ICP-Brasil A1 ──────────────────────────────────────
-CERT_PATH = os.getenv("CERT_PATH", "")
+# ── Certificado Digital ICP-Brasil A1 (do contador) ───────────────────────
+# Um único certificado do contador com procuração das empresas.
+# Caminho relativo a BASE_DIR ou absoluto. Ex: "certs/contador.pfx"
+CERT_PATH = str(_resolver_caminho(os.getenv("CERT_PATH", ""), BASE_DIR / "certs" / "contador.pfx"))
 CERT_PASSWORD = os.getenv("CERT_PASSWORD", "")
 
 # ── Planilha de empresas ────────────────────────────────────────────────────
-SPREADSHEET_PATH = BASE_DIR / "services" / "Auto_Prefeitura.xlsx"
+# Relativa a BASE_DIR. Ex: "services/Auto_Prefeitura.xlsx"
+SPREADSHEET_PATH = _resolver_caminho(
+    os.getenv("SPREADSHEET_PATH", ""),
+    BASE_DIR / "services" / "Auto_Prefeitura.xlsx",
+)
 
 # ── Pasta de saída ──────────────────────────────────────────────────────────
-OUTPUT_BASE_PATH = os.getenv("OUTPUT_BASE_PATH", str(BASE_DIR / "output"))
+# Relativa a BASE_DIR por padrão. Ex: "output" ou caminho absoluto de rede.
+OUTPUT_BASE_PATH = str(_resolver_caminho(
+    os.getenv("OUTPUT_BASE_PATH", ""),
+    BASE_DIR / "output",
+))
 
 # ── SIEG ─────────────────────────────────────────────────────────────────────
 SIEG_API_KEY = os.getenv("SIEG_API_KEY", "")
