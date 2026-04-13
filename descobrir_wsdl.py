@@ -28,24 +28,33 @@ from utils.cert_utils import load_pfx, TempCertContext
 # Organizadas por probabilidade (mais provável primeiro)
 
 CANDIDATAS = [
-    # receita.joaopessoa.pb.gov.br — servidor confirmado de produção
+    # ── receita.joaopessoa.pb.gov.br — servidor confirmado de produção ────────
+    # Padrões CXF/JAX-WS (Apache CXF expõe em /services/ ou diretamente)
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/services/NfseWS?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/NfseWS?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/NfseService?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/services/NfseService?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/webservice?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/webservice/NfseWS?wsdl",
+    # Padrões com NfseWSService (testados antes sem cert)
     "https://receita.joaopessoa.pb.gov.br/notafiscal/NfseWSService?wsdl",
-    "https://receita.joaopessoa.pb.gov.br/notafiscal/NfseWSService",
-    "https://receita.joaopessoa.pb.gov.br/sismjp/NfseWSService?wsdl",
-    "https://receita.joaopessoa.pb.gov.br/NfseWSService?wsdl",
-    "https://receita.joaopessoa.pb.gov.br/notafiscal/services/NfseWSService?wsdl",
     "https://receita.joaopessoa.pb.gov.br/notafiscal/ws/NfseWSService?wsdl",
-    "https://receita.joaopessoa.pb.gov.br/notafiscal/webservices/NfseWSService?wsdl",
-    "https://receita.joaopessoa.pb.gov.br/notafiscal/ws?wsdl",
-    # Porta 8443 direta no Tomcat (Apache pode não estar na frente)
-    "https://receita.joaopessoa.pb.gov.br:8443/sismjp/NfseWSService?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/notafiscal/services/NfseWSService?wsdl",
+    # Padrões Metro/JAX-WS no contexto raiz
+    "https://receita.joaopessoa.pb.gov.br/NfseWS?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/sismjp/NfseWS?wsdl",
+    "https://receita.joaopessoa.pb.gov.br/sismjp/NfseWSService?wsdl",
+    # ── Tomcat porta 8443 (pode não estar atrás do Apache) ────────────────────
+    "https://receita.joaopessoa.pb.gov.br:8443/notafiscal/NfseWS?wsdl",
+    "https://receita.joaopessoa.pb.gov.br:8443/notafiscal/services/NfseWS?wsdl",
     "https://receita.joaopessoa.pb.gov.br:8443/notafiscal/NfseWSService?wsdl",
-    "https://receita.joaopessoa.pb.gov.br:8443/NfseWSService?wsdl",
-    # serem-hml.joaopessoa.pb.gov.br — servidor de homologação confirmado (177.221.47.207)
+    "https://receita.joaopessoa.pb.gov.br:8443/sismjp/NfseWSService?wsdl",
+    # ── serem-hml.joaopessoa.pb.gov.br — homologação ─────────────────────────
+    "https://serem-hml.joaopessoa.pb.gov.br/notafiscal/services/NfseWS?wsdl",
+    "https://serem-hml.joaopessoa.pb.gov.br/notafiscal/NfseWS?wsdl",
     "https://serem-hml.joaopessoa.pb.gov.br/notafiscal/NfseWSService?wsdl",
+    "https://serem-hml.joaopessoa.pb.gov.br/notafiscal/NfseService?wsdl",
     "https://serem-hml.joaopessoa.pb.gov.br/sismjp/NfseWSService?wsdl",
-    "https://serem-hml.joaopessoa.pb.gov.br/NfseWSService?wsdl",
-    "https://serem-hml.joaopessoa.pb.gov.br/notafiscal/ws/NfseWSService?wsdl",
 ]
 
 

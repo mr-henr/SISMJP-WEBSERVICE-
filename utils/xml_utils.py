@@ -87,6 +87,82 @@ def build_consultar_nfse_servico_prestado(
     return etree.tostring(root, encoding="unicode")
 
 
+def build_consultar_nfse_faixa(
+    inscricao_municipal: str,
+    cnpj: str,
+    numero_inicial: int = 1,
+    numero_final: int = 999999999,
+    pagina: int = 1,
+) -> str:
+    """
+    Monta XML para ConsultarNfseFaixa (notas por faixa de número).
+
+    Operação documentada no manual da Prefeitura de João Pessoa.
+    Útil quando ConsultarNfseServicoPrestado não estiver disponível.
+
+    Para consultar todas as notas de um prestador: use numero_inicial=1
+    e numero_final=999999999 (faixa ampla) e filtre por data no cliente.
+
+    Schema:
+        ConsultarNfseFaixaEnvio
+          └─ Prestador / CpfCnpj / InscricaoMunicipal
+          └─ Faixa / NumeroNfseInicial / NumeroNfseFinal
+          └─ Pagina
+    """
+    root = etree.Element("ConsultarNfseFaixaEnvio")
+
+    prestador = etree.SubElement(root, "Prestador")
+    cpf_cnpj_el = etree.SubElement(prestador, "CpfCnpj")
+    cnpj_clean = _digits_only(cnpj)
+    if len(cnpj_clean) == 14:
+        etree.SubElement(cpf_cnpj_el, "Cnpj").text = cnpj_clean
+    else:
+        etree.SubElement(cpf_cnpj_el, "Cpf").text = cnpj_clean
+    etree.SubElement(prestador, "InscricaoMunicipal").text = inscricao_municipal.strip()
+
+    faixa = etree.SubElement(root, "Faixa")
+    etree.SubElement(faixa, "NumeroNfseInicial").text = str(numero_inicial)
+    etree.SubElement(faixa, "NumeroNfseFinal").text = str(numero_final)
+
+    etree.SubElement(root, "Pagina").text = str(pagina)
+
+    return etree.tostring(root, encoding="unicode")
+
+
+def build_consultar_nfse_por_rps(
+    numero_rps: str,
+    serie_rps: str,
+    tipo_rps: int,
+    inscricao_municipal: str,
+    cnpj: str,
+) -> str:
+    """
+    Monta XML para ConsultarNfsePorRps (busca nota pelo RPS que a originou).
+
+    Schema:
+        ConsultarNfseRpsEnvio
+          └─ IdentificacaoRps / Numero / Serie / Tipo
+          └─ Prestador / CpfCnpj / InscricaoMunicipal
+    """
+    root = etree.Element("ConsultarNfseRpsEnvio")
+
+    id_rps = etree.SubElement(root, "IdentificacaoRps")
+    etree.SubElement(id_rps, "Numero").text = numero_rps
+    etree.SubElement(id_rps, "Serie").text = serie_rps
+    etree.SubElement(id_rps, "Tipo").text = str(tipo_rps)
+
+    prestador = etree.SubElement(root, "Prestador")
+    cpf_cnpj_el = etree.SubElement(prestador, "CpfCnpj")
+    cnpj_clean = _digits_only(cnpj)
+    if len(cnpj_clean) == 14:
+        etree.SubElement(cpf_cnpj_el, "Cnpj").text = cnpj_clean
+    else:
+        etree.SubElement(cpf_cnpj_el, "Cpf").text = cnpj_clean
+    etree.SubElement(prestador, "InscricaoMunicipal").text = inscricao_municipal.strip()
+
+    return etree.tostring(root, encoding="unicode")
+
+
 def build_consultar_nfse_servico_tomado(
     cnpj_cpf: str,
     inscricao_municipal: str,

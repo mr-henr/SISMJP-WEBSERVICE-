@@ -11,16 +11,31 @@ from datetime import datetime
 
 from zeep.exceptions import Fault
 
-from config.settings import RETROACTIVE_MONTHS
+from config.settings import CERT_PATH, CERT_PASSWORD, RETROACTIVE_MONTHS
 from models.nfse_model import NfseData
 from services.logging_service import log_error, log_info, log_warning
 from services.webservice_client import get_client
+from utils.cert_utils import load_pfx
+from utils.sign_utils import assinar_xml
 from utils.xml_utils import (
     build_cabecalho,
+    build_consultar_nfse_faixa,
     build_consultar_nfse_servico_prestado,
     build_consultar_nfse_servico_tomado,
     parse_nfse_list_response,
 )
+
+# ── Materiais de assinatura digital (carregados uma vez, reutilizados) ────────
+_signing_key: bytes | None = None
+_signing_cert: bytes | None = None
+
+
+def _get_signing_materials() -> tuple[bytes, bytes]:
+    """Retorna (key_pem, cert_pem) carregando o .pfx na primeira chamada."""
+    global _signing_key, _signing_cert
+    if _signing_key is None:
+        _signing_key, _signing_cert, _ = load_pfx(CERT_PATH, CERT_PASSWORD)
+    return _signing_key, _signing_cert  # type: ignore[return-value]
 
 # Códigos ABRASF que indicam "nenhum registro encontrado" (não é erro real)
 _CODIGOS_SEM_REGISTRO = {"E10", "E4", "E15", "E56"}
@@ -84,6 +99,7 @@ def consultar_nfse_prestado(
             competencia_ano=competencia_ano,
             pagina=pagina,
         )
+        dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
             response = client.service.ConsultarNfseServicoPrestado(
@@ -172,6 +188,7 @@ def consultar_nfse_tomado(
             competencia_ano=competencia_ano,
             pagina=pagina,
         )
+        dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
             response = client.service.ConsultarNfseServicoTomado(
@@ -291,6 +308,79 @@ def consultar_retroativo(
             results[chave] = {"prestado": prestado, "tomado": tomado}
 
     return results
+
+
+# ── Consulta por faixa de número (operação documentada no manual JP) ──────────
+
+
+def consultar_nfse_faixa(
+    empresa_nome: str,
+    empresa_codigo: str,
+    inscricao_municipal: str,
+    cnpj: str,
+    numero_inicial: int = 1,
+    numero_final: int = 999999999,
+) -> list[NfseData]:
+    """
+    Consulta NFS-e por faixa de número (ConsultarNfseFaixa).
+
+    Operação documentada no manual da Prefeitura de João Pessoa.
+    Use como alternativa a consultar_nfse_prestado quando o servidor
+    não suportar ConsultarNfseServicoPrestado.
+
+    Para pegar todas as notas do prestador, use a faixa padrão (1 a 999999999)
+    e filtre por competência no resultado.
+
+    Returns:
+        Lista de NfseData de todas as páginas.
+    """
+    log_info(empresa_nome, empresa_codigo, "NFSe Faixa",
+             f"Consultando por faixa {numero_inicial}-{numero_final}")
+
+    client = get_client()
+    cabecalho = build_cabecalho()
+    all_notas: list[NfseData] = []
+    pagina = 1
+
+    while True:
+        dados = build_consultar_nfse_faixa(
+            inscricao_municipal=inscricao_municipal,
+            cnpj=cnpj,
+            numero_inicial=numero_inicial,
+            numero_final=numero_final,
+            pagina=pagina,
+        )
+        dados = assinar_xml(dados, *_get_signing_materials())
+
+        try:
+            response = client.service.ConsultarNfseFaixa(
+                nfseCabecMsg=cabecalho,
+                nfseDadosMsg=dados,
+            )
+        except Fault as f:
+            log_error(empresa_nome, empresa_codigo, "NFSe Faixa SOAP Fault", str(f))
+            raise
+
+        resp_str = response if isinstance(response, str) else (str(response) if response else "")
+        notas_dicts, erros, proxima_pagina = parse_nfse_list_response(resp_str)
+
+        if erros:
+            if _apenas_sem_registro(erros):
+                break
+            log_error(empresa_nome, empresa_codigo, "NFSe Faixa", "; ".join(erros))
+            raise NfseServiceError(erros)
+
+        page_notas = [NfseData.from_dict(d) for d in notas_dicts]
+        all_notas.extend(page_notas)
+
+        log_info(empresa_nome, empresa_codigo, "NFSe Faixa",
+                 f"Página {pagina}: {len(page_notas)} nota(s). Total: {len(all_notas)}")
+
+        if not proxima_pagina or proxima_pagina <= pagina:
+            break
+        pagina = proxima_pagina
+
+    return all_notas
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
