@@ -38,6 +38,16 @@ USE_HOMOLOG = os.getenv("USE_HOMOLOG", "false").lower() == "true"
 WEBSERVICE_URL = WEBSERVICE_URL_HOMOLOG if USE_HOMOLOG else WEBSERVICE_URL_PROD
 WSDL_URL = f"{WEBSERVICE_URL}?wsdl"
 
+# ── WSDL local (opcional) ────────────────────────────────────────────────────
+# Se existir o arquivo wsdl/nfse.wsdl, ele é usado no lugar do WSDL remoto.
+# Útil quando o endpoint é inacessível ou para evitar download a cada execução.
+# Para gerar: acesse {WSDL_URL} no browser e salve como wsdl/nfse.wsdl
+_WSDL_LOCAL = _resolver_caminho(
+    os.getenv("WSDL_LOCAL_PATH", ""),
+    BASE_DIR / "wsdl" / "nfse.wsdl",
+)
+WSDL_EFETIVO = f"file:///{_WSDL_LOCAL}".replace("\\", "/") if _WSDL_LOCAL.exists() else WSDL_URL
+
 # Versão do padrão ABRASF
 ABRASF_VERSION = "2.03"
 # Código IBGE de João Pessoa-PB
