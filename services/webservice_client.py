@@ -7,7 +7,9 @@ Implementado como singleton para reutilizar a conexão entre chamadas.
 
 import logging
 
+from lxml import etree
 from zeep import Client
+from zeep.exceptions import Fault
 from zeep.plugins import HistoryPlugin
 from zeep.transports import Transport
 
@@ -16,10 +18,13 @@ from config.settings import (
     CERT_PASSWORD,
     WEBSERVICE_TIMEOUT,
     WEBSERVICE_OPERATION_TIMEOUT,
+    WEBSERVICE_URL,
     WSDL_EFETIVO,
     WSDL_URL,
 )
 from utils.cert_utils import build_certified_session
+
+_SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
 
 # Suprime logs verbosos do zeep/urllib3 em produção
 logging.getLogger("zeep").setLevel(logging.WARNING)
@@ -80,6 +85,85 @@ class WebserviceClient:
             )
         except Exception:
             return ""
+
+    def call_raw(self, dados_xml: str, soap_action: str = "") -> str:
+        """
+        Envia envelope SOAP 1.1 bruto com o XML assinado no corpo.
+
+        Usado em vez de client.service.*() porque o webservice de JP usa
+        binding tipado (parâmetros como objetos) — não aceita nfseDadosMsg
+        como string. Com call_raw, controlamos o XML exato enviado e o
+        XMLDSig é preservado intacto.
+
+        Args:
+            dados_xml: XML assinado (ex: ConsultarNfseServicoPrestadoEnvio)
+            soap_action: Valor do header SOAPAction (vazio = padrão ABRASF)
+
+        Returns:
+            Conteúdo do <Body> da resposta SOAP como string XML.
+
+        Raises:
+            zeep.exceptions.Fault: Se o servidor retornar um SOAP Fault.
+            requests.exceptions.HTTPError: Para erros HTTP não-SOAP.
+        """
+        envelope = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            f'<soapenv:Envelope xmlns:soapenv="{_SOAP_NS}">'
+            "<soapenv:Header/>"
+            "<soapenv:Body>"
+            + dados_xml
+            + "</soapenv:Body>"
+            "</soapenv:Envelope>"
+        )
+
+        self._last_raw_sent: str = envelope
+        self._last_raw_received: str = ""
+
+        headers = {
+            "Content-Type": "text/xml; charset=utf-8",
+            "SOAPAction": f'"{soap_action}"',
+        }
+
+        resp = self._session.post(
+            WEBSERVICE_URL,
+            data=envelope.encode("utf-8"),
+            headers=headers,
+            timeout=WEBSERVICE_OPERATION_TIMEOUT,
+        )
+        self._last_raw_received = resp.text
+
+        # Tenta parsear como XML antes de checar o status HTTP (SOAP Faults
+        # chegam como HTTP 500 mas contêm um body útil)
+        try:
+            root = etree.fromstring(resp.content)
+        except etree.XMLSyntaxError:
+            resp.raise_for_status()
+            return resp.text
+
+        # SOAP Fault?
+        fault_el = root.find(f".//{{{_SOAP_NS}}}Fault")
+        if fault_el is not None:
+            code = fault_el.findtext("faultcode") or ""
+            msg = fault_el.findtext("faultstring") or ""
+            detail_el = fault_el.find("detail")
+            detail = etree.tostring(detail_el, encoding="unicode") if detail_el is not None else ""
+            raise Fault(message=f"{code}: {msg}", detail=detail)
+
+        resp.raise_for_status()
+
+        # Retorna o primeiro filho do Body
+        body = root.find(f"{{{_SOAP_NS}}}Body")
+        if body is not None and len(body) > 0:
+            return etree.tostring(body[0], encoding="unicode")
+        return resp.text
+
+    def get_last_raw_sent(self) -> str:
+        """Retorna o último envelope SOAP bruto enviado via call_raw (para debug)."""
+        return getattr(self, "_last_raw_sent", "")
+
+    def get_last_raw_received(self) -> str:
+        """Retorna o último response bruto recebido via call_raw (para debug)."""
+        return getattr(self, "_last_raw_received", "")
 
     def close(self):
         """Libera arquivos temporários do certificado."""

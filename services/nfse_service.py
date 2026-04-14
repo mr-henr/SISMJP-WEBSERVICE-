@@ -19,7 +19,6 @@ from utils.cert_utils import load_pfx
 from utils.retry_utils import with_retries
 from utils.sign_utils import assinar_xml
 from utils.xml_utils import (
-    build_cabecalho,
     build_consultar_nfse_faixa,
     build_consultar_nfse_servico_prestado,
     build_consultar_nfse_servico_tomado,
@@ -114,7 +113,6 @@ def consultar_nfse_prestado(
     )
 
     client = get_client()
-    cabecalho = build_cabecalho()
     all_notas: list[NfseData] = []
     pagina = 1
 
@@ -129,12 +127,11 @@ def consultar_nfse_prestado(
         dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
+            # _dados captura o valor atual de `dados` para a lambda (evita captura tardia)
+            _dados = dados
             response = _chamar_soap_com_retry(
                 "NFSe Prestado", empresa_nome, empresa_codigo,
-                lambda: client.service.ConsultarNfseServicoPrestado(
-                    nfseCabecMsg=cabecalho,
-                    nfseDadosMsg=dados,
-                ),
+                lambda: client.call_raw(_dados),
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Prestado SOAP Fault", str(f))
@@ -206,7 +203,6 @@ def consultar_nfse_tomado(
     )
 
     client = get_client()
-    cabecalho = build_cabecalho()
     all_notas: list[NfseData] = []
     pagina = 1
 
@@ -221,12 +217,10 @@ def consultar_nfse_tomado(
         dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
+            _dados = dados
             response = _chamar_soap_com_retry(
                 "NFSe Tomado", empresa_nome, empresa_codigo,
-                lambda: client.service.ConsultarNfseServicoTomado(
-                    nfseCabecMsg=cabecalho,
-                    nfseDadosMsg=dados,
-                ),
+                lambda: client.call_raw(_dados),
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Tomado SOAP Fault", str(f))
@@ -371,7 +365,6 @@ def consultar_nfse_faixa(
              f"Consultando por faixa {numero_inicial}-{numero_final}")
 
     client = get_client()
-    cabecalho = build_cabecalho()
     all_notas: list[NfseData] = []
     pagina = 1
 
@@ -386,12 +379,10 @@ def consultar_nfse_faixa(
         dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
+            _dados = dados
             response = _chamar_soap_com_retry(
                 "NFSe Faixa", empresa_nome, empresa_codigo,
-                lambda: client.service.ConsultarNfseFaixa(
-                    nfseCabecMsg=cabecalho,
-                    nfseDadosMsg=dados,
-                ),
+                lambda: client.call_raw(_dados),
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Faixa SOAP Fault", str(f))

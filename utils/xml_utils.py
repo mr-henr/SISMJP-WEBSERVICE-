@@ -15,6 +15,9 @@ from lxml import etree
 
 from config.settings import ABRASF_VERSION, CODIGO_MUNICIPIO
 
+# Namespace oficial ABRASF 2.03 — obrigatório nos elementos de requisição
+ABRASF_NS = "http://www.abrasf.org.br/nfse.xsd"
+
 # ── Cabeçalho ─────────────────────────────────────────────────────────────────
 
 
@@ -67,7 +70,7 @@ def build_consultar_nfse_servico_prestado(
         calendar.monthrange(competencia_ano, competencia_mes)[1],
     )
 
-    root = etree.Element("ConsultarNfseServicoPrestadoEnvio")
+    root = etree.Element("ConsultarNfseServicoPrestadoEnvio", nsmap={None: ABRASF_NS})
 
     prestador = etree.SubElement(root, "Prestador")
     cpf_cnpj_el = etree.SubElement(prestador, "CpfCnpj")
@@ -109,7 +112,7 @@ def build_consultar_nfse_faixa(
           └─ Faixa / NumeroNfseInicial / NumeroNfseFinal
           └─ Pagina
     """
-    root = etree.Element("ConsultarNfseFaixaEnvio")
+    root = etree.Element("ConsultarNfseFaixaEnvio", nsmap={None: ABRASF_NS})
 
     prestador = etree.SubElement(root, "Prestador")
     cpf_cnpj_el = etree.SubElement(prestador, "CpfCnpj")
@@ -144,7 +147,7 @@ def build_consultar_nfse_por_rps(
           └─ IdentificacaoRps / Numero / Serie / Tipo
           └─ Prestador / CpfCnpj / InscricaoMunicipal
     """
-    root = etree.Element("ConsultarNfseRpsEnvio")
+    root = etree.Element("ConsultarNfseRpsEnvio", nsmap={None: ABRASF_NS})
 
     id_rps = etree.SubElement(root, "IdentificacaoRps")
     etree.SubElement(id_rps, "Numero").text = numero_rps
@@ -197,7 +200,7 @@ def build_consultar_nfse_servico_tomado(
         calendar.monthrange(competencia_ano, competencia_mes)[1],
     )
 
-    root = etree.Element("ConsultarNfseServicoTomadoEnvio")
+    root = etree.Element("ConsultarNfseServicoTomadoEnvio", nsmap={None: ABRASF_NS})
 
     tomador = etree.SubElement(root, "Tomador")
     cpf_cnpj_el = etree.SubElement(tomador, "CpfCnpj")

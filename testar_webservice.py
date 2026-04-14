@@ -134,8 +134,7 @@ def main() -> int:
     # ── 4. Montar XML de consulta ────────────────────────────────────────────
     _step(4, TOTAL, f"Montando XML ConsultarNfseServicoPrestado ({TEST_MES:02d}/{TEST_ANO})")
     try:
-        from utils.xml_utils import build_cabecalho, build_consultar_nfse_servico_prestado
-        cabecalho = build_cabecalho()
+        from utils.xml_utils import build_consultar_nfse_servico_prestado
         dados = build_consultar_nfse_servico_prestado(
             inscricao_municipal=TEST_INSCRICAO_MUNICIPAL,
             cnpj=TEST_CNPJ,
@@ -162,33 +161,28 @@ def main() -> int:
         _err(f"Falha na assinatura: {exc}")
         return 7
 
-    # ── 6. Enviar requisição SOAP ────────────────────────────────────────────
+    # ── 6. Enviar requisição SOAP (via call_raw — envelope bruto) ────────────
     _step(6, TOTAL, "Enviando requisição ConsultarNfseServicoPrestado")
     try:
         from zeep.exceptions import Fault
         try:
-            response = client.service.ConsultarNfseServicoPrestado(
-                nfseCabecMsg=cabecalho,
-                nfseDadosMsg=dados_assinado,
-            )
+            resp_str = client.call_raw(dados_assinado)
         except Fault as f:
             _err(f"SOAP Fault: {f}")
-            _info("Último envelope enviado:")
-            print(client.get_last_sent_xml()[:2000])
+            _info("Envelope enviado:")
+            print(client.get_last_raw_sent()[:2000])
             return 8
 
-        resp_str = response if isinstance(response, str) else str(response or "")
         _ok(f"Resposta recebida ({len(resp_str)} bytes)")
         print("\n     ─── Primeiros 2000 chars da resposta ───")
         print(resp_str[:2000])
         print("     ─────────────────────────────────────────")
     except Exception as exc:
         _err(f"Falha na chamada SOAP: {type(exc).__name__}: {exc}")
-        try:
+        raw_sent = client.get_last_raw_sent()
+        if raw_sent:
             print("\n     Último envelope enviado (primeiros 2000 chars):")
-            print(client.get_last_sent_xml()[:2000])
-        except Exception:
-            pass
+            print(raw_sent[:2000])
         return 8
 
     # ── 7. Parse da resposta ──────────────────────────────────────────────────
