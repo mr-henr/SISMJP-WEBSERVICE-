@@ -29,7 +29,9 @@ from __future__ import annotations
 
 import os
 import sys
+from dotenv import load_dotenv
 from pathlib import Path
+load_dotenv()
 
 # Adiciona o diretório do script ao path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
