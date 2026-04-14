@@ -38,7 +38,7 @@ Para cada empresa na planilha, a automação:
 
 ```bash
 git clone <url-do-repositorio>
-cd SISMJP-WEBSERVICE-/sismjp-webservice
+cd SISMJP-WEBSERVICE-
 ```
 
 ### 2. Criar e ativar ambiente virtual Python
@@ -157,21 +157,85 @@ A planilha deve estar em `sismjp-webservice/services/Auto_Prefeitura.xlsx`.
 
 ## Executar a automação
 
-Com o ambiente virtual ativado, na pasta `sismjp-webservice/`:
+Com o ambiente virtual ativado, na raiz do projeto:
 
 ```bash
 python main.py
 ```
 
-A automação vai imprimir o progresso no terminal e salvar um log em `output/automacao_sismjp.log`.
+A automação imprime o progresso no terminal e salva um log em `output/automacao_sismjp.log`.
 
 ### Testar antes de rodar em produção
 
-Para testar sem dados reais, ative o ambiente de homologação no `.env`:
+Antes de processar todas as empresas, **sempre valide** a conexão com o webservice usando o script de teste mínimo. Ele consulta **uma única empresa** com data fixa e mostra em detalhe cada passo (certificado, WSDL, assinatura, envio, parsing).
 
-```env
-USE_HOMOLOG=true
+```bash
+# 1. Ative homologação no .env
+echo "USE_HOMOLOG=true" >> .env
+
+# 2. Exporte os dados de teste (uma empresa real com procuração ativa)
+export TEST_IM=123456
+export TEST_CNPJ=12345678000199
+export TEST_MES=1
+export TEST_ANO=2025
+
+# Windows (PowerShell):
+#   $env:TEST_IM="123456"; $env:TEST_CNPJ="12345678000199"
+
+# 3. Rode o teste
+python testar_webservice.py
 ```
+
+Saída esperada (caminho feliz):
+
+```
+[1/7] Carregando certificado digital A1
+   ✓ Certificado carregado: contador.pfx
+[2/7] Conectando ao WSDL e inicializando cliente SOAP
+   ✓ Cliente SOAP inicializado
+[3/7] Operações SOAP expostas pelo serviço
+     • CancelarNfse
+     • ConsultarLoteRps
+     • ConsultarNfseFaixa
+     • ConsultarNfsePorRps
+     • ConsultarNfseServicoPrestado
+     • ConsultarNfseServicoTomado
+     • RecepcionarLoteRps
+     ✓ 7 operações disponíveis
+[4/7] Montando XML ConsultarNfseServicoPrestado (01/2025)
+[5/7] Assinando XML (XMLDSig RSA-SHA1)
+[6/7] Enviando requisição ConsultarNfseServicoPrestado
+[7/7] Parseando resposta e extraindo notas
+   ✓ N nota(s) encontrada(s)
+```
+
+Códigos de saída:
+| Código | Significado |
+|--------|-------------|
+| `0` | Sucesso (com ou sem notas no período) |
+| `2` | Variáveis `TEST_IM` / `TEST_CNPJ` não definidas |
+| `3` | Certificado não encontrado ou senha errada |
+| `4` | Falha na conexão com WSDL (DNS, SSL ou timeout) |
+| `5` | WSDL não expõe operações (corrompido) |
+| `7` | Falha na assinatura XMLDSig |
+| `8` | SOAP Fault na chamada |
+| `9` | Resposta com erros de negócio |
+
+---
+
+## Checklist de validação antes de rodar em produção
+
+Marque cada item antes do primeiro run mensal:
+
+- [ ] `.env` preenchido com `CERT_PATH`, `CERT_PASSWORD`, `SIEG_API_KEY`, `NIBO_*`
+- [ ] Certificado `.pfx` presente em `certs/` (ou caminho absoluto configurado)
+- [ ] Certificado dentro da validade (verificar no gerenciador de certificados)
+- [ ] Procurações eletrônicas das empresas ativas no portal da prefeitura
+- [ ] Planilha `Auto_Prefeitura.xlsx` em `services/` com `PROCESSO=S` nas empresas ativas
+- [ ] Célula K1 (pasta de saída) e H5 (competência MM/AAAA) preenchidas
+- [ ] `python testar_webservice.py` concluiu com código `0` em homologação
+- [ ] `USE_HOMOLOG=false` no `.env` para o run oficial
+- [ ] Pasta de saída acessível e com espaço em disco
 
 ---
 
@@ -243,15 +307,33 @@ sismjp-webservice/
 
 ## Solução de problemas comuns
 
-| Erro | Causa provável | Solução |
-|------|---------------|---------|
-| `FileNotFoundError: certs/contador.pfx` | Certificado não está na pasta | Copiar o `.pfx` para `sismjp-webservice/certs/` |
-| `ValueError: Falha ao carregar certificado` | Senha errada no `.env` | Verificar `CERT_PASSWORD` |
+| Sintoma / Erro | Causa provável | Solução |
+|----------------|----------------|---------|
+| `FileNotFoundError: certs/contador.pfx` | Certificado não está na pasta | Copiar o `.pfx` para `certs/` ou ajustar `CERT_PATH` no `.env` |
+| `ValueError: Falha ao carregar certificado` | Senha errada no `.env` | Verificar `CERT_PASSWORD` — senha é case-sensitive |
 | `CERTIFICATE_VERIFY_FAILED` | CAs ICP-Brasil não instalados | Ver seção "Instalar os CAs da ICP-Brasil" |
-| `FileNotFoundError: Auto_Prefeitura.xlsx` | Planilha não está na pasta | Copiar para `sismjp-webservice/services/` |
+| `getaddrinfo failed` / DNS | Sem internet ou servidor fora do ar | Verificar conectividade e rodar `ping receita.joaopessoa.pb.gov.br` |
+| `ReadTimeout` / `ConnectionError` | Servidor lento ou instável | O sistema já retenta 3× com backoff 2s → 4s. Se persistir, tentar mais tarde |
+| `FileNotFoundError: Auto_Prefeitura.xlsx` | Planilha não está na pasta | Copiar para `services/Auto_Prefeitura.xlsx` |
 | `Nenhuma empresa ativa` | Coluna `PROCESSO` não tem `S` | Verificar a planilha |
-| `zeep.exceptions.Fault` | Erro de protocolo SOAP | Verificar se `USE_HOMOLOG` está correto e se o certificado tem procuração |
+| `zeep.exceptions.Fault` | Erro de protocolo SOAP | Ver `get_last_sent_xml()` para inspecionar o envelope — geralmente falta de assinatura ou campo obrigatório |
 | `[E10] Nenhum registro` | Empresa sem NFS-e no período | Normal — a automação continua para a próxima empresa |
+| `[E4] Assinatura inválida` | XML mal assinado | O certificado pode estar expirado ou a procuração foi revogada |
+| `[E56] Procuração não encontrada` | Certificado sem procuração para a empresa | Contador precisa cadastrar a procuração eletrônica no SISMJP |
+| `[E69] InscricaoMunicipal inválida` | IM errada na planilha | Verificar coluna `INSCRICAO_MUNICIPAL` — não use o `CODIGO` se forem diferentes |
+| XML de resposta contém `<BODY>...</BODY>` HTML | Firewall/proxy interceptou a chamada | Verificar proxy corporativo, tentar fora da rede da empresa |
+
+### Debug avançado
+
+Se precisar ver o XML bruto que foi enviado / recebido durante uma falha, edite temporariamente `main.py` (ou seu script) para usar:
+
+```python
+from services.webservice_client import get_client
+client = get_client()
+# ... chamada que falhou ...
+print(client.get_last_sent_xml())      # último envelope SOAP enviado
+print(client.get_last_received_xml())  # último envelope SOAP recebido
+```
 
 ---
 
@@ -270,12 +352,28 @@ sismjp-webservice/
 
 ---
 
-## Endpoints do Webservice
+## Endpoints do Webservice (SEREM)
+
+Implantado em 02/06/2025 pela **Secretaria da Receita Municipal (SEREM)** de João Pessoa no padrão ABRASF 2.03.
 
 | Ambiente | URL |
 |----------|-----|
-| Produção | `https://sispmjp.joaopessoa.pb.gov.br:8443/sispmjp/NfseWSService` |
-| Homologação | `https://nfsehomolog.joaopessoa.pb.gov.br:8443/sispmjp/NfseWSService` |
-| WSDL (produção) | `https://sispmjp.joaopessoa.pb.gov.br:8443/sispmjp/NfseWSService?wsdl` |
+| Produção | `https://receita.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap` |
+| Homologação | `https://serem-hml.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap` |
+| WSDL (homologação) | `https://serem-hml.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap?wsdl` |
 
-Padrão: **ABRASF 2.03** · Protocolo: **SOAP** · Autenticação: **Certificado ICP-Brasil A1**
+Padrão: **ABRASF 2.03** · Protocolo: **SOAP** · Autenticação: **Certificado ICP-Brasil A1** · Assinatura: **XMLDSig RSA-SHA1** (obrigatória em todas as consultas)
+
+### Operações implementadas
+
+| Operação | Uso | Implementado |
+|----------|-----|--------------|
+| `ConsultarNfseServicoPrestado` | Consultar NFS-e emitidas | ✓ |
+| `ConsultarNfseServicoTomado` | Consultar NFS-e recebidas | ✓ |
+| `ConsultarNfseFaixa` | Consultar por faixa de número | ✓ (fallback) |
+| `ConsultarNfsePorRps` | Consultar por RPS | ✓ (builder pronto) |
+| `ConsultarLoteRps` | Consultar lote de RPS | ✗ (não necessário) |
+| `RecepcionarLoteRps` | Emitir lote de RPS | ✗ (só consulta) |
+| `CancelarNfse` | Cancelar NFS-e | ✗ (só consulta) |
+
+> O projeto é **somente consulta** — não emite nem cancela notas. Toda a geração de NFS-e continua sendo feita pelas próprias empresas.

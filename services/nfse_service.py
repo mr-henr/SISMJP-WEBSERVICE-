@@ -16,6 +16,7 @@ from models.nfse_model import NfseData
 from services.logging_service import log_error, log_info, log_warning
 from services.webservice_client import get_client
 from utils.cert_utils import load_pfx
+from utils.retry_utils import with_retries
 from utils.sign_utils import assinar_xml
 from utils.xml_utils import (
     build_cabecalho,
@@ -39,6 +40,32 @@ def _get_signing_materials() -> tuple[bytes, bytes]:
 
 # Códigos ABRASF que indicam "nenhum registro encontrado" (não é erro real)
 _CODIGOS_SEM_REGISTRO = {"E10", "E4", "E15", "E56"}
+
+
+def _log_retry(empresa_nome: str, empresa_codigo: str, operacao: str):
+    """Retorna um callback on_retry que loga warning antes de cada nova tentativa."""
+    def _cb(tentativa: int, exc: BaseException, backoff: float) -> None:
+        log_warning(
+            empresa_nome,
+            empresa_codigo,
+            f"{operacao} (retry)",
+            f"Tentativa {tentativa} falhou ({type(exc).__name__}: {exc}). "
+            f"Nova tentativa em {backoff:.1f}s.",
+        )
+    return _cb
+
+
+def _chamar_soap_com_retry(operacao_nome: str, empresa_nome: str, empresa_codigo: str, fn):
+    """
+    Envolve uma chamada SOAP com retry (3 tentativas, backoff 2s → 4s).
+    Só retenta em falhas de rede; SOAP Faults e erros de negócio sobem direto.
+    """
+    return with_retries(
+        max_attempts=3,
+        initial_backoff=2.0,
+        backoff_factor=2.0,
+        on_retry=_log_retry(empresa_nome, empresa_codigo, operacao_nome),
+    )(fn)()
 
 
 class NfseServiceError(Exception):
@@ -102,9 +129,12 @@ def consultar_nfse_prestado(
         dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
-            response = client.service.ConsultarNfseServicoPrestado(
-                nfseCabecMsg=cabecalho,
-                nfseDadosMsg=dados,
+            response = _chamar_soap_com_retry(
+                "NFSe Prestado", empresa_nome, empresa_codigo,
+                lambda: client.service.ConsultarNfseServicoPrestado(
+                    nfseCabecMsg=cabecalho,
+                    nfseDadosMsg=dados,
+                ),
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Prestado SOAP Fault", str(f))
@@ -191,9 +221,12 @@ def consultar_nfse_tomado(
         dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
-            response = client.service.ConsultarNfseServicoTomado(
-                nfseCabecMsg=cabecalho,
-                nfseDadosMsg=dados,
+            response = _chamar_soap_com_retry(
+                "NFSe Tomado", empresa_nome, empresa_codigo,
+                lambda: client.service.ConsultarNfseServicoTomado(
+                    nfseCabecMsg=cabecalho,
+                    nfseDadosMsg=dados,
+                ),
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Tomado SOAP Fault", str(f))
@@ -353,9 +386,12 @@ def consultar_nfse_faixa(
         dados = assinar_xml(dados, *_get_signing_materials())
 
         try:
-            response = client.service.ConsultarNfseFaixa(
-                nfseCabecMsg=cabecalho,
-                nfseDadosMsg=dados,
+            response = _chamar_soap_com_retry(
+                "NFSe Faixa", empresa_nome, empresa_codigo,
+                lambda: client.service.ConsultarNfseFaixa(
+                    nfseCabecMsg=cabecalho,
+                    nfseDadosMsg=dados,
+                ),
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Faixa SOAP Fault", str(f))
