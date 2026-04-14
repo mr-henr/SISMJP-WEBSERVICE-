@@ -15,9 +15,6 @@ from lxml import etree
 
 from config.settings import ABRASF_VERSION, CODIGO_MUNICIPIO
 
-# Namespace oficial ABRASF 2.03 — obrigatório nos elementos de requisição
-ABRASF_NS = "http://www.abrasf.org.br/nfse.xsd"
-
 # ── Cabeçalho ─────────────────────────────────────────────────────────────────
 
 
@@ -70,7 +67,7 @@ def build_consultar_nfse_servico_prestado(
         calendar.monthrange(competencia_ano, competencia_mes)[1],
     )
 
-    root = etree.Element("ConsultarNfseServicoPrestadoEnvio", nsmap={None: ABRASF_NS})
+    root = etree.Element("ConsultarNfseServicoPrestadoEnvio")
 
     prestador = etree.SubElement(root, "Prestador")
     cpf_cnpj_el = etree.SubElement(prestador, "CpfCnpj")
@@ -112,7 +109,7 @@ def build_consultar_nfse_faixa(
           └─ Faixa / NumeroNfseInicial / NumeroNfseFinal
           └─ Pagina
     """
-    root = etree.Element("ConsultarNfseFaixaEnvio", nsmap={None: ABRASF_NS})
+    root = etree.Element("ConsultarNfseFaixaEnvio")
 
     prestador = etree.SubElement(root, "Prestador")
     cpf_cnpj_el = etree.SubElement(prestador, "CpfCnpj")
@@ -147,7 +144,7 @@ def build_consultar_nfse_por_rps(
           └─ IdentificacaoRps / Numero / Serie / Tipo
           └─ Prestador / CpfCnpj / InscricaoMunicipal
     """
-    root = etree.Element("ConsultarNfseRpsEnvio", nsmap={None: ABRASF_NS})
+    root = etree.Element("ConsultarNfseRpsEnvio")
 
     id_rps = etree.SubElement(root, "IdentificacaoRps")
     etree.SubElement(id_rps, "Numero").text = numero_rps
@@ -200,7 +197,7 @@ def build_consultar_nfse_servico_tomado(
         calendar.monthrange(competencia_ano, competencia_mes)[1],
     )
 
-    root = etree.Element("ConsultarNfseServicoTomadoEnvio", nsmap={None: ABRASF_NS})
+    root = etree.Element("ConsultarNfseServicoTomadoEnvio")
 
     tomador = etree.SubElement(root, "Tomador")
     cpf_cnpj_el = etree.SubElement(tomador, "CpfCnpj")
@@ -219,6 +216,93 @@ def build_consultar_nfse_servico_tomado(
     etree.SubElement(root, "Pagina").text = str(pagina)
 
     return etree.tostring(root, encoding="unicode")
+
+
+# ── Builders de dict para API tipada do zeep ─────────────────────────────────
+# Usados em vez dos builders de string quando se chama client.service.*()
+# diretamente. O zeep serializa os dicts nos elementos corretos (com namespace
+# resolvido pelo WSDL). O _SignaturePlugin assina depois da serialização.
+
+
+def build_consultar_prestado_dict(
+    inscricao_municipal: str,
+    cnpj: str,
+    competencia_mes: int,
+    competencia_ano: int,
+    pagina: int = 1,
+) -> dict:
+    """Retorna dict de parâmetros para ConsultarNfseServicoPrestado (zeep typed API)."""
+    first_day = date(competencia_ano, competencia_mes, 1)
+    last_day = date(
+        competencia_ano,
+        competencia_mes,
+        calendar.monthrange(competencia_ano, competencia_mes)[1],
+    )
+    cnpj_clean = _digits_only(cnpj)
+    cpf_cnpj = {"Cnpj": cnpj_clean} if len(cnpj_clean) == 14 else {"Cpf": cnpj_clean}
+    return {
+        "Prestador": {
+            "CpfCnpj": cpf_cnpj,
+            "InscricaoMunicipal": inscricao_municipal.strip(),
+        },
+        "PeriodoEmissao": {
+            "DataInicial": first_day,
+            "DataFinal": last_day,
+        },
+        "Pagina": pagina,
+    }
+
+
+def build_consultar_tomado_dict(
+    cnpj_cpf: str,
+    inscricao_municipal: str,
+    competencia_mes: int,
+    competencia_ano: int,
+    pagina: int = 1,
+) -> dict:
+    """Retorna dict de parâmetros para ConsultarNfseServicoTomado (zeep typed API)."""
+    first_day = date(competencia_ano, competencia_mes, 1)
+    last_day = date(
+        competencia_ano,
+        competencia_mes,
+        calendar.monthrange(competencia_ano, competencia_mes)[1],
+    )
+    doc_clean = _digits_only(cnpj_cpf)
+    cpf_cnpj = {"Cnpj": doc_clean} if len(doc_clean) == 14 else {"Cpf": doc_clean}
+    tomador: dict = {"CpfCnpj": cpf_cnpj}
+    if inscricao_municipal and inscricao_municipal.strip():
+        tomador["InscricaoMunicipal"] = inscricao_municipal.strip()
+    return {
+        "Tomador": tomador,
+        "PeriodoEmissao": {
+            "DataInicial": first_day,
+            "DataFinal": last_day,
+        },
+        "Pagina": pagina,
+    }
+
+
+def build_consultar_faixa_dict(
+    inscricao_municipal: str,
+    cnpj: str,
+    numero_inicial: int = 1,
+    numero_final: int = 999999999,
+    pagina: int = 1,
+) -> dict:
+    """Retorna dict de parâmetros para ConsultarNfseFaixa (zeep typed API)."""
+    cnpj_clean = _digits_only(cnpj)
+    cpf_cnpj = {"Cnpj": cnpj_clean} if len(cnpj_clean) == 14 else {"Cpf": cnpj_clean}
+    return {
+        "Prestador": {
+            "CpfCnpj": cpf_cnpj,
+            "InscricaoMunicipal": inscricao_municipal.strip(),
+        },
+        "Faixa": {
+            "NumeroNfseInicial": numero_inicial,
+            "NumeroNfseFinal": numero_final,
+        },
+        "Pagina": pagina,
+    }
 
 
 # ── Parser de resposta ────────────────────────────────────────────────────────

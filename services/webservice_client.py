@@ -3,12 +3,16 @@ Cliente SOAP para o webservice SISMJP (João Pessoa - ABRASF 2.03).
 
 Usa zeep com transport autenticado por certificado digital ICP-Brasil A1.
 Implementado como singleton para reutilizar a conexão entre chamadas.
+
+Assinatura XMLDSig: o _SignaturePlugin intercepta cada envelope SOAP antes
+do envio e assina o elemento raiz do Body (RSA-SHA1 + C14N inclusiva).
+Isso garante namespace correto — zeep conhece o WSDL, nós só assinamos.
 """
 
 import logging
 
 from lxml import etree
-from zeep import Client
+from zeep import Client, Plugin
 from zeep.exceptions import Fault
 from zeep.plugins import HistoryPlugin
 from zeep.transports import Transport
@@ -32,6 +36,47 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 
 
+class _SignaturePlugin(Plugin):
+    """
+    Plugin zeep que insere assinatura XMLDSig RSA-SHA1 no elemento raiz
+    do SOAP Body imediatamente antes do envio HTTP.
+
+    Vantagem sobre pré-assinar manualmente: zeep já serializa o elemento
+    no namespace correto (conforme WSDL). Aqui apenas assinamos o resultado.
+    """
+
+    def __init__(self):
+        self._key_pem: bytes | None = None
+        self._cert_pem: bytes | None = None
+
+    def configure(self, key_pem: bytes, cert_pem: bytes) -> None:
+        self._key_pem = key_pem
+        self._cert_pem = cert_pem
+
+    def egress(self, envelope, http_headers, operation, binding_options):
+        """Assina o elemento raiz do Body antes do HTTP POST."""
+        if self._key_pem is None or self._cert_pem is None:
+            return envelope, http_headers
+
+        body = envelope.find(f"{{{_SOAP_NS}}}Body")
+        if body is None or len(body) == 0:
+            return envelope, http_headers
+
+        from utils.sign_utils import assinar_xml
+
+        content_el = body[0]
+        content_str = etree.tostring(content_el, encoding="unicode")
+        signed_str = assinar_xml(content_str, self._key_pem, self._cert_pem)
+        signed_el = etree.fromstring(signed_str.encode("utf-8"))
+        body.remove(content_el)
+        body.append(signed_el)
+
+        return envelope, http_headers
+
+    def ingress(self, envelope, http_headers, operation):
+        return envelope, http_headers
+
+
 class WebserviceClient:
     """
     Wrapper do zeep.Client com autenticação por certificado A1.
@@ -43,6 +88,7 @@ class WebserviceClient:
     def __init__(self):
         self._session = build_certified_session(CERT_PATH, CERT_PASSWORD)
         self._history = HistoryPlugin()
+        self._sig_plugin = _SignaturePlugin()
 
         transport = Transport(
             session=self._session,
@@ -53,9 +99,14 @@ class WebserviceClient:
         self._client = Client(
             wsdl=WSDL_EFETIVO,
             transport=transport,
-            plugins=[self._history],
+            plugins=[self._history, self._sig_plugin],
         )
         self._service = self._client.service
+
+        # Carrega materiais de assinatura e configura o plugin
+        from utils.cert_utils import load_pfx
+        key_pem, cert_pem, _ = load_pfx(CERT_PATH, CERT_PASSWORD)
+        self._sig_plugin.configure(key_pem, cert_pem)
 
     @property
     def service(self):
@@ -86,84 +137,20 @@ class WebserviceClient:
         except Exception:
             return ""
 
-    def call_raw(self, dados_xml: str, soap_action: str = "") -> str:
+    def get_last_received_body(self) -> str:
         """
-        Envia envelope SOAP 1.1 bruto com o XML assinado no corpo.
+        Extrai o conteúdo do SOAP Body da última resposta (para parsing).
 
-        Usado em vez de client.service.*() porque o webservice de JP usa
-        binding tipado (parâmetros como objetos) — não aceita nfseDadosMsg
-        como string. Com call_raw, controlamos o XML exato enviado e o
-        XMLDSig é preservado intacto.
-
-        Args:
-            dados_xml: XML assinado (ex: ConsultarNfseServicoPrestadoEnvio)
-            soap_action: Valor do header SOAPAction (vazio = padrão ABRASF)
-
-        Returns:
-            Conteúdo do <Body> da resposta SOAP como string XML.
-
-        Raises:
-            zeep.exceptions.Fault: Se o servidor retornar um SOAP Fault.
-            requests.exceptions.HTTPError: Para erros HTTP não-SOAP.
+        Usa o HistoryPlugin — disponível após qualquer chamada a client.service.*().
         """
-        envelope = (
-            '<?xml version="1.0" encoding="UTF-8"?>'
-            f'<soapenv:Envelope xmlns:soapenv="{_SOAP_NS}">'
-            "<soapenv:Header/>"
-            "<soapenv:Body>"
-            + dados_xml
-            + "</soapenv:Body>"
-            "</soapenv:Envelope>"
-        )
-
-        self._last_raw_sent: str = envelope
-        self._last_raw_received: str = ""
-
-        headers = {
-            "Content-Type": "text/xml; charset=utf-8",
-            "SOAPAction": f'"{soap_action}"',
-        }
-
-        resp = self._session.post(
-            WEBSERVICE_URL,
-            data=envelope.encode("utf-8"),
-            headers=headers,
-            timeout=WEBSERVICE_OPERATION_TIMEOUT,
-        )
-        self._last_raw_received = resp.text
-
-        # Tenta parsear como XML antes de checar o status HTTP (SOAP Faults
-        # chegam como HTTP 500 mas contêm um body útil)
         try:
-            root = etree.fromstring(resp.content)
-        except etree.XMLSyntaxError:
-            resp.raise_for_status()
-            return resp.text
-
-        # SOAP Fault?
-        fault_el = root.find(f".//{{{_SOAP_NS}}}Fault")
-        if fault_el is not None:
-            code = fault_el.findtext("faultcode") or ""
-            msg = fault_el.findtext("faultstring") or ""
-            detail_el = fault_el.find("detail")
-            detail = etree.tostring(detail_el, encoding="unicode") if detail_el is not None else ""
-            raise Fault(message=f"{code}: {msg}", detail=detail)
-
-        resp.raise_for_status()
-
-        # Retorna o primeiro filho do Body
-        body = root.find(f"{{{_SOAP_NS}}}Body")
-        if body is not None and len(body) > 0:
-            return etree.tostring(body[0], encoding="unicode")
-        return resp.text
-
-    def get_last_raw_sent(self) -> str:
-        """Retorna o último envelope SOAP bruto enviado via call_raw (para debug)."""
-        return getattr(self, "_last_raw_sent", "")
-
-    def get_last_raw_received(self) -> str:
-        """Retorna o último response bruto recebido via call_raw (para debug)."""
-        return getattr(self, "_last_raw_received", "")
+            envelope = self._history.last_received["envelope"]
+            body = envelope.find(f"{{{_SOAP_NS}}}Body")
+            if body is not None and len(body) > 0:
+                return etree.tostring(body[0], encoding="unicode")
+            return ""
+        except Exception:
+            return ""
 
     def close(self):
         """Libera arquivos temporários do certificado."""

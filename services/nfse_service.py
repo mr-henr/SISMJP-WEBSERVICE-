@@ -11,31 +11,17 @@ from datetime import datetime
 
 from zeep.exceptions import Fault
 
-from config.settings import CERT_PATH, CERT_PASSWORD, RETROACTIVE_MONTHS
+from config.settings import RETROACTIVE_MONTHS
 from models.nfse_model import NfseData
 from services.logging_service import log_error, log_info, log_warning
 from services.webservice_client import get_client
-from utils.cert_utils import load_pfx
 from utils.retry_utils import with_retries
-from utils.sign_utils import assinar_xml
 from utils.xml_utils import (
-    build_consultar_nfse_faixa,
-    build_consultar_nfse_servico_prestado,
-    build_consultar_nfse_servico_tomado,
+    build_consultar_faixa_dict,
+    build_consultar_prestado_dict,
+    build_consultar_tomado_dict,
     parse_nfse_list_response,
 )
-
-# ── Materiais de assinatura digital (carregados uma vez, reutilizados) ────────
-_signing_key: bytes | None = None
-_signing_cert: bytes | None = None
-
-
-def _get_signing_materials() -> tuple[bytes, bytes]:
-    """Retorna (key_pem, cert_pem) carregando o .pfx na primeira chamada."""
-    global _signing_key, _signing_cert
-    if _signing_key is None:
-        _signing_key, _signing_cert, _ = load_pfx(CERT_PATH, CERT_PASSWORD)
-    return _signing_key, _signing_cert  # type: ignore[return-value]
 
 # Códigos ABRASF que indicam "nenhum registro encontrado" (não é erro real)
 _CODIGOS_SEM_REGISTRO = {"E10", "E4", "E15", "E56"}
@@ -117,27 +103,30 @@ def consultar_nfse_prestado(
     pagina = 1
 
     while True:
-        dados = build_consultar_nfse_servico_prestado(
+        params = build_consultar_prestado_dict(
             inscricao_municipal=inscricao_municipal,
             cnpj=cnpj,
             competencia_mes=competencia_mes,
             competencia_ano=competencia_ano,
             pagina=pagina,
         )
-        dados = assinar_xml(dados, *_get_signing_materials())
+        # _params captura o valor atual (evita captura tardia em lambda de loop)
+        _params = params
 
         try:
-            # _dados captura o valor atual de `dados` para a lambda (evita captura tardia)
-            _dados = dados
-            response = _chamar_soap_com_retry(
-                "NFSe Prestado", empresa_nome, empresa_codigo,
-                lambda: client.call_raw(_dados),
+            def _call_prestado():
+                client.service.ConsultarNfseServicoPrestado(
+                    ConsultarNfseServicoPrestadoEnvio=_params
+                )
+                return client.get_last_received_body()
+
+            resp_str = _chamar_soap_com_retry(
+                "NFSe Prestado", empresa_nome, empresa_codigo, _call_prestado
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Prestado SOAP Fault", str(f))
             raise
 
-        resp_str = response if isinstance(response, str) else (str(response) if response else "")
         notas_dicts, erros, proxima_pagina = parse_nfse_list_response(resp_str)
 
         if erros:
@@ -207,26 +196,29 @@ def consultar_nfse_tomado(
     pagina = 1
 
     while True:
-        dados = build_consultar_nfse_servico_tomado(
+        params = build_consultar_tomado_dict(
             cnpj_cpf=cnpj_cpf,
             inscricao_municipal=inscricao_municipal,
             competencia_mes=competencia_mes,
             competencia_ano=competencia_ano,
             pagina=pagina,
         )
-        dados = assinar_xml(dados, *_get_signing_materials())
+        _params = params
 
         try:
-            _dados = dados
-            response = _chamar_soap_com_retry(
-                "NFSe Tomado", empresa_nome, empresa_codigo,
-                lambda: client.call_raw(_dados),
+            def _call_tomado():
+                client.service.ConsultarNfseServicoTomado(
+                    ConsultarNfseServicoTomadoEnvio=_params
+                )
+                return client.get_last_received_body()
+
+            resp_str = _chamar_soap_com_retry(
+                "NFSe Tomado", empresa_nome, empresa_codigo, _call_tomado
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Tomado SOAP Fault", str(f))
             raise
 
-        resp_str = response if isinstance(response, str) else (str(response) if response else "")
         notas_dicts, erros, proxima_pagina = parse_nfse_list_response(resp_str)
 
         if erros:
@@ -369,26 +361,29 @@ def consultar_nfse_faixa(
     pagina = 1
 
     while True:
-        dados = build_consultar_nfse_faixa(
+        params = build_consultar_faixa_dict(
             inscricao_municipal=inscricao_municipal,
             cnpj=cnpj,
             numero_inicial=numero_inicial,
             numero_final=numero_final,
             pagina=pagina,
         )
-        dados = assinar_xml(dados, *_get_signing_materials())
+        _params = params
 
         try:
-            _dados = dados
-            response = _chamar_soap_com_retry(
-                "NFSe Faixa", empresa_nome, empresa_codigo,
-                lambda: client.call_raw(_dados),
+            def _call_faixa():
+                client.service.ConsultarNfseFaixa(
+                    ConsultarNfseFaixaEnvio=_params
+                )
+                return client.get_last_received_body()
+
+            resp_str = _chamar_soap_com_retry(
+                "NFSe Faixa", empresa_nome, empresa_codigo, _call_faixa
             )
         except Fault as f:
             log_error(empresa_nome, empresa_codigo, "NFSe Faixa SOAP Fault", str(f))
             raise
 
-        resp_str = response if isinstance(response, str) else (str(response) if response else "")
         notas_dicts, erros, proxima_pagina = parse_nfse_list_response(resp_str)
 
         if erros:

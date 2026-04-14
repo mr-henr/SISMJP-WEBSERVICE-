@@ -131,46 +131,49 @@ def main() -> int:
         _err(f"Falha ao listar operações: {exc}")
         return 5
 
-    # ── 4. Montar XML de consulta ────────────────────────────────────────────
-    _step(4, TOTAL, f"Montando XML ConsultarNfseServicoPrestado ({TEST_MES:02d}/{TEST_ANO})")
+    # ── 4. Montar parâmetros da consulta ─────────────────────────────────────
+    _step(4, TOTAL, f"Montando parâmetros ConsultarNfseServicoPrestado ({TEST_MES:02d}/{TEST_ANO})")
     try:
-        from utils.xml_utils import build_consultar_nfse_servico_prestado
-        dados = build_consultar_nfse_servico_prestado(
+        from utils.xml_utils import build_consultar_prestado_dict
+        params = build_consultar_prestado_dict(
             inscricao_municipal=TEST_INSCRICAO_MUNICIPAL,
             cnpj=TEST_CNPJ,
             competencia_mes=TEST_MES,
             competencia_ano=TEST_ANO,
             pagina=TEST_PAGINA,
         )
-        _ok(f"XML montado ({len(dados)} bytes)")
+        _ok("Parâmetros montados")
         _info(f"Prestador IM: {TEST_INSCRICAO_MUNICIPAL} | CNPJ: {TEST_CNPJ}")
+        _info(f"Período: {params['PeriodoEmissao']['DataInicial']} → {params['PeriodoEmissao']['DataFinal']}")
     except Exception as exc:
-        _err(f"Falha ao montar XML: {exc}")
+        _err(f"Falha ao montar parâmetros: {exc}")
         return 6
 
-    # ── 5. Assinar XML ────────────────────────────────────────────────────────
-    _step(5, TOTAL, "Assinando XML (XMLDSig RSA-SHA1)")
+    # ── 5. Verificar plugin de assinatura ────────────────────────────────────
+    _step(5, TOTAL, "Verificando plugin de assinatura XMLDSig no cliente SOAP")
     try:
-        from utils.sign_utils import assinar_xml
-        dados_assinado = assinar_xml(dados, key_pem, cert_pem)
-        if "<Signature" not in dados_assinado:
-            _err("Assinatura não foi inserida no XML")
+        plugin = client._sig_plugin
+        if plugin._key_pem is None:
+            _err("Plugin de assinatura não foi configurado")
             return 7
-        _ok("XML assinado com sucesso")
+        _ok("Plugin XMLDSig RSA-SHA1 ativo — assina automaticamente antes do envio")
     except Exception as exc:
-        _err(f"Falha na assinatura: {exc}")
+        _err(f"Falha ao verificar plugin: {exc}")
         return 7
 
-    # ── 6. Enviar requisição SOAP (via call_raw — envelope bruto) ────────────
-    _step(6, TOTAL, "Enviando requisição ConsultarNfseServicoPrestado")
+    # ── 6. Enviar via zeep typed API (plugin assina o body) ──────────────────
+    _step(6, TOTAL, "Enviando ConsultarNfseServicoPrestado (zeep typed API)")
     try:
         from zeep.exceptions import Fault
         try:
-            resp_str = client.call_raw(dados_assinado)
+            client.service.ConsultarNfseServicoPrestado(
+                ConsultarNfseServicoPrestadoEnvio=params
+            )
+            resp_str = client.get_last_received_body()
         except Fault as f:
             _err(f"SOAP Fault: {f}")
-            _info("Envelope enviado:")
-            print(client.get_last_raw_sent()[:2000])
+            _info("Último envelope enviado (via HistoryPlugin):")
+            print(client.get_last_sent_xml()[:2000])
             return 8
 
         _ok(f"Resposta recebida ({len(resp_str)} bytes)")
@@ -179,10 +182,11 @@ def main() -> int:
         print("     ─────────────────────────────────────────")
     except Exception as exc:
         _err(f"Falha na chamada SOAP: {type(exc).__name__}: {exc}")
-        raw_sent = client.get_last_raw_sent()
-        if raw_sent:
-            print("\n     Último envelope enviado (primeiros 2000 chars):")
-            print(raw_sent[:2000])
+        try:
+            print("\n     Último envelope enviado:")
+            print(client.get_last_sent_xml()[:2000])
+        except Exception:
+            pass
         return 8
 
     # ── 7. Parse da resposta ──────────────────────────────────────────────────
