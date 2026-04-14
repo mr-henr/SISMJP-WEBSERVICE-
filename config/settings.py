@@ -30,9 +30,14 @@ def _resolver_caminho(valor: str, padrao_relativo: Path) -> Path:
     return p if p.is_absolute() else BASE_DIR / p
 
 
-# ── Webservice SISMJP ───────────────────────────────────────────────────────
-WEBSERVICE_URL_PROD = "https://sispmjp.joaopessoa.pb.gov.br:8443/sispmjp/NfseWSService"
-WEBSERVICE_URL_HOMOLOG = "https://nfsehomolog.joaopessoa.pb.gov.br:8443/sispmjp/NfseWSService"
+# ── Webservice SISMJP (SEREM - Secretaria da Receita Municipal de João Pessoa) ─
+# Padrão ABRASF 2.03 — implantado em 02/06/2025
+# WSDL homologação confirmado:
+#   https://serem-hml.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap?wsdl
+# WSDL produção (confirmar na SEREM — segue o mesmo padrão de URL):
+#   https://receita.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap?wsdl
+WEBSERVICE_URL_PROD    = "https://receita.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap"
+WEBSERVICE_URL_HOMOLOG = "https://serem-hml.joaopessoa.pb.gov.br/notafiscal-abrasfv203-ws/NotaFiscalSoap"
 
 USE_HOMOLOG = os.getenv("USE_HOMOLOG", "false").lower() == "true"
 WEBSERVICE_URL = WEBSERVICE_URL_HOMOLOG if USE_HOMOLOG else WEBSERVICE_URL_PROD
