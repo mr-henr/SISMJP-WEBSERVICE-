@@ -2,10 +2,17 @@
 Assinatura digital XMLDSig RSA-SHA1 para webservices ABRASF 2.03.
 
 Padrão obrigatório em todas as prefeituras brasileiras ABRASF:
-  - Algoritmo de canonicalização: C14N inclusiva (não exclusiva)
+  - CanonicalizationMethod (SignedInfo): C14N inclusiva
   - Algoritmo de assinatura: RSA-SHA1
-  - Transform: enveloped-signature + C14N
+  - Reference Transform: enveloped-signature + C14N EXCLUSIVA
   - KeyInfo: X509Certificate (DER em base64)
+
+Usamos C14N exclusiva (exc-c14n) no Transform da Reference para o digest
+porque o elemento assinado é extraído do SOAP envelope (tem namespaces
+herdados do ancestral ns0: no envelope). C14N exclusiva é context-independent:
+ignora declarações de namespace herdadas não utilizadas, garantindo que
+o digest calculado aqui coincida com o calculado pelo servidor ao verificar
+(o servidor lê o Algorithm da Transform e usa o mesmo algoritmo).
 
 Dois modos de uso:
   - reference_uri=""    → assina o elemento raiz (consultas)
@@ -23,13 +30,14 @@ from cryptography.x509 import load_pem_x509_certificate
 from lxml import etree
 
 DSIG = "http://www.w3.org/2000/09/xmldsig#"
-C14N_ALG = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+C14N_ALG      = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+C14N_EXCL_ALG = "http://www.w3.org/2001/10/xml-exc-c14n#"
 
 
-def _c14n(element: etree._Element) -> bytes:
-    """C14N inclusiva de um elemento (sem comentários)."""
+def _c14n(element: etree._Element, exclusive: bool = False) -> bytes:
+    """C14N de um elemento (sem comentários). Padrão: inclusiva."""
     buf = BytesIO()
-    etree.ElementTree(element).write_c14n(buf, exclusive=False, with_comments=False)
+    etree.ElementTree(element).write_c14n(buf, exclusive=exclusive, with_comments=False)
     return buf.getvalue()
 
 
@@ -75,12 +83,12 @@ def assinar_xml(
         target = root
         sig_parent = root
 
-    # ── C14N do elemento alvo ─────────────────────────────────────────────
+    # ── C14N do elemento alvo (exclusiva: context-independent) ───────────
     # Transform enveloped-signature: remove Signature filhos antes de C14N
     target_copy = etree.fromstring(etree.tostring(target))
     for sig_el in target_copy.findall(f"{{{DSIG}}}Signature"):
         target_copy.remove(sig_el)
-    digest_b64 = base64.b64encode(hashlib.sha1(_c14n(target_copy)).digest()).decode()
+    digest_b64 = base64.b64encode(hashlib.sha1(_c14n(target_copy, exclusive=True)).digest()).decode()
 
     # ── Construir SignedInfo ───────────────────────────────────────────────
     nsmap = {None: DSIG}
@@ -91,7 +99,7 @@ def assinar_xml(
     ref.set("URI", reference_uri)
     tr = etree.SubElement(ref, f"{{{DSIG}}}Transforms")
     etree.SubElement(tr, f"{{{DSIG}}}Transform").set("Algorithm", f"{DSIG}enveloped-signature")
-    etree.SubElement(tr, f"{{{DSIG}}}Transform").set("Algorithm", C14N_ALG)
+    etree.SubElement(tr, f"{{{DSIG}}}Transform").set("Algorithm", C14N_EXCL_ALG)
     etree.SubElement(ref, f"{{{DSIG}}}DigestMethod").set("Algorithm", f"{DSIG}sha1")
     etree.SubElement(ref, f"{{{DSIG}}}DigestValue").text = digest_b64
 
