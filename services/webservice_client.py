@@ -54,7 +54,15 @@ class _SignaturePlugin(Plugin):
         self._cert_pem = cert_pem
 
     def egress(self, envelope, http_headers, operation, binding_options):
-        """Assina o elemento raiz do Body antes do HTTP POST."""
+        """Assina o elemento de conteúdo do Body antes do HTTP POST.
+
+        zeep usa wrapped document/literal:
+          body[0] = wrapper da operação  (ns0:ConsultarNfseServicoPrestado)
+          body[0][0] = parâmetro/conteúdo (ConsultarNfseServicoPrestadoEnvio)
+
+        A assinatura ABRASF deve estar DENTRO de ConsultarNfseServicoPrestadoEnvio,
+        não como irmão fora dele. Por isso assinamos body[0][0] e o reinserimos.
+        """
         if self._key_pem is None or self._cert_pem is None:
             return envelope, http_headers
 
@@ -62,14 +70,18 @@ class _SignaturePlugin(Plugin):
         if body is None or len(body) == 0:
             return envelope, http_headers
 
+        op_wrapper = body[0]   # ns0:ConsultarNfseServicoPrestado
+        if len(op_wrapper) == 0:
+            return envelope, http_headers
+
         from utils.sign_utils import assinar_xml
 
-        content_el = body[0]
+        content_el = op_wrapper[0]   # ConsultarNfseServicoPrestadoEnvio
         content_str = etree.tostring(content_el, encoding="unicode")
         signed_str = assinar_xml(content_str, self._key_pem, self._cert_pem)
         signed_el = etree.fromstring(signed_str.encode("utf-8"))
-        body.remove(content_el)
-        body.append(signed_el)
+        op_wrapper.remove(content_el)
+        op_wrapper.insert(0, signed_el)
 
         return envelope, http_headers
 
