@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFS-e JP Manager</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════════════════ -->
+<header id="header">
+  <div class="logo">
+    <div class="logo-icon">📋</div>
+    <div>
+      <div class="logo-text">NFS-e JP Manager</div>
+      <div class="logo-sub">João Pessoa · ABRASF 2.04</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <span id="ambiente-badge" class="ambiente-badge homologacao">🟡 Homologação</span>
+
+  <div id="empresa-selector-wrap">
+    <label for="empresa-select">Empresa:</label>
+    <select id="empresa-select">
+      <option value="">— Carregando... —</option>
+    </select>
+    <button class="btn-icon" onclick="abrirModalNovaEmpresa()" title="Cadastrar nova empresa">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     APP LAYOUT
+═══════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ── SIDEBAR ── -->
+  <nav id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Painel</div>
+      <div class="nav-item" data-page="dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-page="empresas">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Empresas
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Emissão</div>
+      <div class="nav-item" data-page="lote-sincrono">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Lote Síncrono
+      </div>
+      <div class="nav-item" data-page="lote-assincrono">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Lote Assíncrono
+      </div>
+      <div class="nav-item" data-page="gerar-nfse">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Gerar NFS-e
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Consultas</div>
+      <div class="nav-item" data-page="consultar-lote">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Consultar Lote
+      </div>
+      <div class="nav-item" data-page="consultar-rps">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Consultar por RPS
+      </div>
+      <div class="nav-item" data-page="consultar-faixa">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Consultar Faixa
+      </div>
+      <div class="nav-item" data-page="consultar-competencia">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Consultar Competência
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Ações</div>
+      <div class="nav-item" data-page="cancelar">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        Cancelar NFS-e
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── CONTEÚDO ── -->
+  <main id="content">
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: DASHBOARD
+    ══════════════════════════════════════════════ -->
+    <div id="page-dashboard" class="page">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-empresas">0</div>
+          <div class="stat-label">Empresas Cadastradas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">7</div>
+          <div class="stat-label">Operações Disponíveis</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-ambiente">—</div>
+          <div class="stat-label">Ambiente Ativo</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Guia de Uso
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <ol style="padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--text-secondary)">
+            <li><strong>Configure o ambiente:</strong> Copie <code>.env.example</code> para <code>.env</code>, gere uma SECRET_KEY Fernet e defina <code>AMBIENTE=homologacao</code>.</li>
+            <li><strong>Cadastre uma empresa:</strong> Clique no <kbd>+</kbd> ao lado do seletor de empresa no topo, informe o CNPJ, razão social, caminho do arquivo <code>.pfx</code> e a senha do certificado.</li>
+            <li><strong>Selecione a empresa ativa:</strong> Use o dropdown no cabeçalho. Todas as operações usarão o certificado desta empresa.</li>
+            <li><strong>Execute as operações:</strong> Navegue pelo menu lateral e preencha os formulários. Os XMLs são montados, assinados e enviados automaticamente.</li>
+            <li><strong>Analise os resultados:</strong> A resposta da prefeitura é exibida em XML formatado. Use os botões de copiar/baixar para salvar o comprovante.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Endpoints do WebService</div>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;gap:8px;font-size:12px;">
+            <div><strong>Homologação:</strong> <code>https://ws-homologacao-rtc.giss.com.br/service-ws/nf/nfse-ws</code></div>
+            <div><strong>Produção:</strong> <code>https://ws-joaopessoa.giss.com.br/service-ws/nf/nfse-ws</code></div>
+            <div><strong>Padrão:</strong> ABRASF 2.04 · SOAP 1.1 · mTLS com certificado A1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: EMPRESAS
+    ══════════════════════════════════════════════ -->
+    <div id="page-empresas" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Empresas Cadastradas</div>
+            <div class="card-subtitle">Gerencie as empresas e seus certificados A1</div>
+          </div>
+          <button class="btn btn-primary" onclick="abrirModalNovaEmpresa()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nova Empresa
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>CNPJ</th>
+                <th>Razão Social</th>
+                <th>Inscrição Municipal</th>
+                <th>Certificado</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="empresas-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         MACRO: Formulário de RPS (reutilizado)
+         Incluído inline com diferentes prefixos
+    ══════════════════════════════════════════════ -->
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: LOTE SÍNCRONO
+    ══════════════════════════════════════════════ -->
+    <div id="page-lote-sincrono" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              RecepcionarLoteRpsSincrono
+            </div>
+            <div class="card-subtitle">Envia um lote de RPS e aguarda processamento imediato. Ideal para até 50 notas.</div>
+          </div>
+          <span class="badge badge-info">Síncrono</span>
+        </div>
+        <div class="card-body">
+          <form id="form-lote-sincrono">
+            <div class="form-grid form-grid-3">
+              <div class="field">
+                <label for="ls-numero-lote">Número do Lote <span class="required">*</span></label>
+                <input type="text" id="ls-numero-lote" placeholder="Ex: 1" required>
+              </div>
+              <div class="field">
+                <label for="ls-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label>
+                <input type="text" id="ls-inscricao-municipal" placeholder="Ex: 123456" readonly style="background:var(--bg);color:var(--text-muted);cursor:default">
+              </div>
+            </div>
+
+            <div class="form-grid" style="margin-top:20px">
+              <div class="section-divider">Dados do RPS</div>
+              <div class="field"><label for="ls-rps-numero">Número RPS <span class="required">*</span></label><input type="text" id="ls-rps-numero" placeholder="Ex: 1" required></div>
+              <div class="field"><label for="ls-rps-serie">Série <span class="required">*</span></label><input type="text" id="ls-rps-serie" placeholder="Ex: A1" required></div>
+              <div class="field">
+                <label for="ls-rps-tipo">Tipo</label>
+                <select id="ls-rps-tipo"><option value="1">1 - RPS</option><option value="2">2 - Misto</option><option value="3">3 - Cupom</option></select>
+              </div>
+              <div class="field"><label for="ls-rps-data">Data Emissão <span class="required">*</span></label><input type="date" id="ls-rps-data" required></div>
+              <div class="field"><label for="ls-rps-competencia">Competência <span class="required">*</span></label><input type="date" id="ls-rps-competencia" required></div>
+              <div class="field"><label for="ls-rps-valor">Valor dos Serviços <span class="required">*</span></label><input type="text" id="ls-rps-valor" placeholder="Ex: 1500.00" required></div>
+
+              <div class="section-divider">Serviço</div>
+              <div class="field"><label for="ls-rps-item-servico">Item da Lista <span class="required">*</span></label><input type="text" id="ls-rps-item-servico" placeholder="Ex: 01.07" required></div>
+              <div class="field"><label for="ls-rps-cnae">CNAE</label><input type="text" id="ls-rps-cnae" placeholder="Ex: 6201500"></div>
+              <div class="field">
+                <label for="ls-rps-iss-retido">ISS Retido</label>
+                <select id="ls-rps-iss-retido"><option value="2">2 - Não Retido</option><option value="1">1 - Retido</option></select>
+              </div>
+              <div class="field">
+                <label for="ls-rps-exigibilidade">Exigibilidade ISS</label>
+                <select id="ls-rps-exigibilidade">
+                  <option value="1">1 - Exigível</option><option value="2">2 - Não Incidência</option>
+                  <option value="3">3 - Isenção</option><option value="4">4 - Exportação</option>
+                  <option value="5">5 - Imunidade</option><option value="6">6 - Suspenso Judicial</option>
+                  <option value="7">7 - Suspenso Adm.</option>
+                </select>
+              </div>
+              <div class="field"><label for="ls-rps-municipio">Cód. Município Prestação <span class="required">*</span></label><input type="text" id="ls-rps-municipio" placeholder="Ex: 2507507 (JP)" required></div>
+              <div class="field"><label for="ls-rps-municipio-incidencia">Cód. Município Incidência <span class="required">*</span></label><input type="text" id="ls-rps-municipio-incidencia" placeholder="Ex: 2507507" required></div>
+              <div class="field form-full"><label for="ls-rps-discriminacao">Discriminação do Serviço <span class="required">*</span></label><textarea id="ls-rps-discriminacao" placeholder="Descreva detalhadamente o serviço prestado..." required></textarea></div>
+              <div class="field">
+                <label for="ls-rps-simples">Optante Simples Nacional</label>
+                <select id="ls-rps-simples"><option value="2">2 - Não</option><option value="1">1 - Sim</option></select>
+              </div>
+              <div class="field">
+                <label for="ls-rps-incentivo">Incentivo Fiscal</label>
+                <select id="ls-rps-incentivo"><option value="2">2 - Não</option><option value="1">1 - Sim</option></select>
+              </div>
+
+              <div class="section-divider">Tomador do Serviço</div>
+              <div class="field"><label for="ls-tomador-cnpj">CNPJ do Tomador <span class="hint">(ou CPF abaixo)</span></label><input type="text" id="ls-tomador-cnpj" placeholder="00000000000000" maxlength="18"></div>
+              <div class="field"><label for="ls-tomador-cpf">CPF do Tomador</label><input type="text" id="ls-tomador-cpf" placeholder="00000000000" maxlength="14"></div>
+              <div class="field form-full"><label for="ls-tomador-razao">Razão Social / Nome <span class="required">*</span></label><input type="text" id="ls-tomador-razao" placeholder="Nome do tomador" required></div>
+              <div class="field"><label for="ls-tomador-email">E-mail</label><input type="email" id="ls-tomador-email" placeholder="email@exemplo.com"></div>
+              <div class="field form-full"><label for="ls-tomador-logradouro">Logradouro</label><input type="text" id="ls-tomador-logradouro" placeholder="Rua, Avenida, etc."></div>
+              <div class="field"><label for="ls-tomador-numero">Número</label><input type="text" id="ls-tomador-numero" placeholder="123"></div>
+              <div class="field"><label for="ls-tomador-complemento">Complemento</label><input type="text" id="ls-tomador-complemento" placeholder="Apto, Sala..."></div>
+              <div class="field"><label for="ls-tomador-bairro">Bairro</label><input type="text" id="ls-tomador-bairro" placeholder="Centro"></div>
+              <div class="field"><label for="ls-tomador-municipio">Cód. Município</label><input type="text" id="ls-tomador-municipio" placeholder="2507507"></div>
+              <div class="field"><label for="ls-tomador-uf">UF</label><input type="text" id="ls-tomador-uf" placeholder="PB" maxlength="2"></div>
+              <div class="field"><label for="ls-tomador-cep">CEP</label><input type="text" id="ls-tomador-cep" placeholder="58000000" maxlength="9"></div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-lote-sincrono">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Enviar Lote
+              </button>
+              <div id="loading-lote-sincrono" class="loading-overlay"><div class="spinner"></div> Processando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="result-lote-sincrono" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title">
+              <span class="result-status badge">—</span>
+              Resposta da Prefeitura
+            </div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-lote-sincrono">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-lote-sincrono" data-filename="lote-sincrono-resposta.xml">⬇ Baixar XML</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="result-box"><pre id="xml-resp-lote-sincrono" class="xml-result-content"></pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: LOTE ASSÍNCRONO
+    ══════════════════════════════════════════════ -->
+    <div id="page-lote-assincrono" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              RecepcionarLoteRps (Assíncrono)
+            </div>
+            <div class="card-subtitle">Envia o lote para a fila. Use "Consultar Lote" com o protocolo retornado para verificar o resultado.</div>
+          </div>
+          <span class="badge badge-warning">Assíncrono</span>
+        </div>
+        <div class="card-body">
+          <form id="form-lote-assincrono">
+            <div class="form-grid form-grid-3">
+              <div class="field"><label for="la-numero-lote">Número do Lote <span class="required">*</span></label><input type="text" id="la-numero-lote" placeholder="Ex: 2" required></div>
+              <div class="field"><label for="la-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label><input type="text" id="la-inscricao-municipal" placeholder="Ex: 123456" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></div>
+            </div>
+            <div class="form-grid" style="margin-top:20px">
+              <div class="section-divider">Dados do RPS</div>
+              <div class="field"><label for="la-rps-numero">Número RPS <span class="required">*</span></label><input type="text" id="la-rps-numero" required></div>
+              <div class="field"><label for="la-rps-serie">Série <span class="required">*</span></label><input type="text" id="la-rps-serie" placeholder="A1" required></div>
+              <div class="field"><label for="la-rps-tipo">Tipo</label><select id="la-rps-tipo"><option value="1">1 - RPS</option><option value="2">2 - Misto</option></select></div>
+              <div class="field"><label for="la-rps-data">Data Emissão <span class="required">*</span></label><input type="date" id="la-rps-data" required></div>
+              <div class="field"><label for="la-rps-competencia">Competência <span class="required">*</span></label><input type="date" id="la-rps-competencia" required></div>
+              <div class="field"><label for="la-rps-valor">Valor dos Serviços <span class="required">*</span></label><input type="text" id="la-rps-valor" placeholder="Ex: 500.00" required></div>
+              <div class="section-divider">Serviço</div>
+              <div class="field"><label for="la-rps-item-servico">Item da Lista <span class="required">*</span></label><input type="text" id="la-rps-item-servico" placeholder="01.07" required></div>
+              <div class="field"><label for="la-rps-cnae">CNAE</label><input type="text" id="la-rps-cnae"></div>
+              <div class="field"><label for="la-rps-iss-retido">ISS Retido</label><select id="la-rps-iss-retido"><option value="2">Não</option><option value="1">Sim</option></select></div>
+              <div class="field"><label for="la-rps-exigibilidade">Exigibilidade ISS</label><select id="la-rps-exigibilidade"><option value="1">1 - Exigível</option><option value="2">2 - Não Incidência</option><option value="3">3 - Isenção</option></select></div>
+              <div class="field"><label for="la-rps-municipio">Cód. Município <span class="required">*</span></label><input type="text" id="la-rps-municipio" placeholder="2507507" required></div>
+              <div class="field"><label for="la-rps-municipio-incidencia">Cód. Incidência <span class="required">*</span></label><input type="text" id="la-rps-municipio-incidencia" placeholder="2507507" required></div>
+              <div class="field form-full"><label for="la-rps-discriminacao">Discriminação <span class="required">*</span></label><textarea id="la-rps-discriminacao" required></textarea></div>
+              <div class="field"><label for="la-rps-simples">Simples Nacional</label><select id="la-rps-simples"><option value="2">Não</option><option value="1">Sim</option></select></div>
+              <div class="field"><label for="la-rps-incentivo">Incentivo Fiscal</label><select id="la-rps-incentivo"><option value="2">Não</option><option value="1">Sim</option></select></div>
+              <div class="section-divider">Tomador</div>
+              <div class="field"><label for="la-tomador-cnpj">CNPJ Tomador</label><input type="text" id="la-tomador-cnpj" maxlength="18"></div>
+              <div class="field"><label for="la-tomador-cpf">CPF Tomador</label><input type="text" id="la-tomador-cpf" maxlength="14"></div>
+              <div class="field form-full"><label for="la-tomador-razao">Razão Social <span class="required">*</span></label><input type="text" id="la-tomador-razao" required></div>
+              <div class="field"><label for="la-tomador-email">E-mail</label><input type="email" id="la-tomador-email"></div>
+              <div class="field form-full"><label for="la-tomador-logradouro">Logradouro</label><input type="text" id="la-tomador-logradouro"></div>
+              <div class="field"><label for="la-tomador-numero">Número</label><input type="text" id="la-tomador-numero"></div>
+              <div class="field"><label for="la-tomador-complemento">Complemento</label><input type="text" id="la-tomador-complemento"></div>
+              <div class="field"><label for="la-tomador-bairro">Bairro</label><input type="text" id="la-tomador-bairro"></div>
+              <div class="field"><label for="la-tomador-municipio">Cód. Município</label><input type="text" id="la-tomador-municipio"></div>
+              <div class="field"><label for="la-tomador-uf">UF</label><input type="text" id="la-tomador-uf" maxlength="2"></div>
+              <div class="field"><label for="la-tomador-cep">CEP</label><input type="text" id="la-tomador-cep" maxlength="9"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-lote-assincrono">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Enviar para Fila
+              </button>
+              <div id="loading-lote-assincrono" class="loading-overlay"><div class="spinner"></div> Enviando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="result-lote-assincrono" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title"><span class="result-status badge">—</span> Protocolo Retornado</div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-lote-assincrono">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-lote-assincrono" data-filename="lote-assincrono-resposta.xml">⬇ Baixar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body"><div class="result-box"><pre id="xml-resp-lote-assincrono" class="xml-result-content"></pre></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: GERAR NFS-e
+    ══════════════════════════════════════════════ -->
+    <div id="page-gerar-nfse" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+              GerarNfse
+            </div>
+            <div class="card-subtitle">Geração direta de NFS-e (sem lote). Recomendado para emissão unitária.</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <form id="form-gerar">
+            <div class="form-grid form-grid-3">
+              <div class="field"><label for="gn-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label><input type="text" id="gn-inscricao-municipal" placeholder="Ex: 123456" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></div>
+            </div>
+            <div class="form-grid" style="margin-top:20px">
+              <div class="section-divider">Dados do RPS</div>
+              <div class="field"><label for="gn-rps-numero">Número RPS <span class="required">*</span></label><input type="text" id="gn-rps-numero" required></div>
+              <div class="field"><label for="gn-rps-serie">Série <span class="required">*</span></label><input type="text" id="gn-rps-serie" placeholder="A1" required></div>
+              <div class="field"><label for="gn-rps-tipo">Tipo</label><select id="gn-rps-tipo"><option value="1">1 - RPS</option><option value="2">2 - Misto</option></select></div>
+              <div class="field"><label for="gn-rps-data">Data Emissão <span class="required">*</span></label><input type="date" id="gn-rps-data" required></div>
+              <div class="field"><label for="gn-rps-competencia">Competência <span class="required">*</span></label><input type="date" id="gn-rps-competencia" required></div>
+              <div class="field"><label for="gn-rps-valor">Valor dos Serviços <span class="required">*</span></label><input type="text" id="gn-rps-valor" placeholder="Ex: 2000.00" required></div>
+              <div class="section-divider">Serviço</div>
+              <div class="field"><label for="gn-rps-item-servico">Item da Lista <span class="required">*</span></label><input type="text" id="gn-rps-item-servico" placeholder="01.07" required></div>
+              <div class="field"><label for="gn-rps-cnae">CNAE</label><input type="text" id="gn-rps-cnae"></div>
+              <div class="field"><label for="gn-rps-iss-retido">ISS Retido</label><select id="gn-rps-iss-retido"><option value="2">Não</option><option value="1">Sim</option></select></div>
+              <div class="field"><label for="gn-rps-exigibilidade">Exigibilidade ISS</label><select id="gn-rps-exigibilidade"><option value="1">1 - Exigível</option><option value="2">2 - Não Incidência</option><option value="3">3 - Isenção</option></select></div>
+              <div class="field"><label for="gn-rps-municipio">Cód. Município <span class="required">*</span></label><input type="text" id="gn-rps-municipio" placeholder="2507507" required></div>
+              <div class="field"><label for="gn-rps-municipio-incidencia">Cód. Incidência <span class="required">*</span></label><input type="text" id="gn-rps-municipio-incidencia" placeholder="2507507" required></div>
+              <div class="field form-full"><label for="gn-rps-discriminacao">Discriminação <span class="required">*</span></label><textarea id="gn-rps-discriminacao" required></textarea></div>
+              <div class="field"><label for="gn-rps-simples">Simples Nacional</label><select id="gn-rps-simples"><option value="2">Não</option><option value="1">Sim</option></select></div>
+              <div class="field"><label for="gn-rps-incentivo">Incentivo Fiscal</label><select id="gn-rps-incentivo"><option value="2">Não</option><option value="1">Sim</option></select></div>
+              <div class="section-divider">Tomador</div>
+              <div class="field"><label for="gn-tomador-cnpj">CNPJ Tomador</label><input type="text" id="gn-tomador-cnpj" maxlength="18"></div>
+              <div class="field"><label for="gn-tomador-cpf">CPF Tomador</label><input type="text" id="gn-tomador-cpf" maxlength="14"></div>
+              <div class="field form-full"><label for="gn-tomador-razao">Razão Social <span class="required">*</span></label><input type="text" id="gn-tomador-razao" required></div>
+              <div class="field"><label for="gn-tomador-email">E-mail</label><input type="email" id="gn-tomador-email"></div>
+              <div class="field form-full"><label for="gn-tomador-logradouro">Logradouro</label><input type="text" id="gn-tomador-logradouro"></div>
+              <div class="field"><label for="gn-tomador-numero">Número</label><input type="text" id="gn-tomador-numero"></div>
+              <div class="field"><label for="gn-tomador-complemento">Complemento</label><input type="text" id="gn-tomador-complemento"></div>
+              <div class="field"><label for="gn-tomador-bairro">Bairro</label><input type="text" id="gn-tomador-bairro"></div>
+              <div class="field"><label for="gn-tomador-municipio">Cód. Município</label><input type="text" id="gn-tomador-municipio"></div>
+              <div class="field"><label for="gn-tomador-uf">UF</label><input type="text" id="gn-tomador-uf" maxlength="2"></div>
+              <div class="field"><label for="gn-tomador-cep">CEP</label><input type="text" id="gn-tomador-cep" maxlength="9"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-gerar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                Gerar NFS-e
+              </button>
+              <div id="loading-gerar" class="loading-overlay"><div class="spinner"></div> Gerando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="result-gerar" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title"><span class="result-status badge">—</span> NFS-e Gerada</div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-gerar">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-gerar" data-filename="nfse-gerada.xml">⬇ Baixar XML</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body"><div class="result-box"><pre id="xml-resp-gerar" class="xml-result-content"></pre></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: CONSULTAR LOTE
+    ══════════════════════════════════════════════ -->
+    <div id="page-consultar-lote" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            ConsultarLoteRps
+          </div>
+          <div class="card-subtitle">Consulta o status/resultado de um lote pelo número do protocolo.</div>
+        </div>
+        <div class="card-body">
+          <form id="form-consultar-lote">
+            <div class="form-grid form-grid-2">
+              <div class="field"><label for="cl-protocolo">Número do Protocolo <span class="required">*</span></label><input type="text" id="cl-protocolo" placeholder="Protocolo retornado pelo envio assíncrono" required></div>
+              <div class="field"><label for="cl-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label><input type="text" id="cl-inscricao-municipal" placeholder="Ex: 123456" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-consultar-lote">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Consultar
+              </button>
+              <div id="loading-consultar-lote" class="loading-overlay"><div class="spinner"></div> Consultando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="result-consultar-lote" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title"><span class="result-status badge">—</span> Resultado do Lote</div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-consultar-lote">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-consultar-lote" data-filename="consultar-lote.xml">⬇ Baixar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body"><div class="result-box"><pre id="xml-resp-consultar-lote" class="xml-result-content"></pre></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: CONSULTAR POR RPS
+    ══════════════════════════════════════════════ -->
+    <div id="page-consultar-rps" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            ConsultarNfsePorRps
+          </div>
+          <div class="card-subtitle">Busca a NFS-e emitida usando os dados do RPS de origem.</div>
+        </div>
+        <div class="card-body">
+          <form id="form-consultar-rps">
+            <div class="form-grid form-grid-3">
+              <div class="field"><label for="cr-numero">Número do RPS <span class="required">*</span></label><input type="text" id="cr-numero" required></div>
+              <div class="field"><label for="cr-serie">Série <span class="required">*</span></label><input type="text" id="cr-serie" placeholder="A1" required></div>
+              <div class="field"><label for="cr-tipo">Tipo</label><select id="cr-tipo"><option value="1">1 - RPS</option><option value="2">2 - Misto</option></select></div>
+              <div class="field"><label for="cr-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label><input type="text" id="cr-inscricao-municipal" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-consultar-rps">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Buscar NFS-e
+              </button>
+              <div id="loading-consultar-rps" class="loading-overlay"><div class="spinner"></div> Buscando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="result-consultar-rps" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title"><span class="result-status badge">—</span> NFS-e Encontrada</div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-consultar-rps">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-consultar-rps" data-filename="consultar-por-rps.xml">⬇ Baixar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body"><div class="result-box"><pre id="xml-resp-consultar-rps" class="xml-result-content"></pre></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: CONSULTAR FAIXA
+    ══════════════════════════════════════════════ -->
+    <div id="page-consultar-faixa" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            ConsultarNfseFaixa
+          </div>
+          <div class="card-subtitle">Busca NFS-e dentro de uma faixa de numeração, com paginação (10 por página).</div>
+        </div>
+        <div class="card-body">
+          <form id="form-consultar-faixa">
+            <div class="form-grid form-grid-3">
+              <div class="field"><label for="cf-numero-inicial">Nº Inicial <span class="required">*</span></label><input type="text" id="cf-numero-inicial" placeholder="1" required></div>
+              <div class="field"><label for="cf-numero-final">Nº Final <span class="required">*</span></label><input type="text" id="cf-numero-final" placeholder="100" required></div>
+              <div class="field"><label for="cf-pagina">Página</label><input type="number" id="cf-pagina" value="1" min="1"></div>
+              <div class="field"><label for="cf-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label><input type="text" id="cf-inscricao-municipal" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-consultar-faixa">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Consultar Faixa
+              </button>
+              <div id="loading-consultar-faixa" class="loading-overlay"><div class="spinner"></div> Consultando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="result-consultar-faixa" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title"><span class="result-status badge">—</span> NFS-e na Faixa</div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-consultar-faixa">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-consultar-faixa" data-filename="consultar-faixa.xml">⬇ Baixar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body"><div class="result-box"><pre id="xml-resp-consultar-faixa" class="xml-result-content"></pre></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: CANCELAR NFS-e
+    ══════════════════════════════════════════════ -->
+    <div id="page-cancelar" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              CancelarNfse
+            </div>
+            <div class="card-subtitle">Solicita o cancelamento de uma NFS-e emitida. Confirme antes de enviar.</div>
+          </div>
+          <span class="badge badge-error">Irreversível</span>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-warning" style="margin-bottom:20px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>O cancelamento é uma operação irreversível. A prefeitura pode rejeitar o pedido após o prazo legal ou se a nota já tiver sido tomada.</span>
+          </div>
+          <form id="form-cancelar">
+            <div class="form-grid form-grid-2">
+              <div class="field"><label for="can-numero-nfse">Número da NFS-e <span class="required">*</span></label><input type="text" id="can-numero-nfse" placeholder="Ex: 12345" required></div>
+              <div class="field">
+                <label for="can-codigo-cancelamento">Motivo do Cancelamento <span class="required">*</span></label>
+                <select id="can-codigo-cancelamento">
+                  <option value="1">1 - Erro na emissão</option>
+                  <option value="2">2 - Serviço não prestado</option>
+                  <option value="4">4 - Emissão em duplicidade</option>
+                </select>
+              </div>
+              <div class="field"><label for="can-inscricao-municipal">Inscrição Municipal <span class="hint">(da empresa ativa)</span></label><input type="text" id="can-inscricao-municipal" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></div>
+              <div class="field"><label for="can-codigo-municipio">Cód. Município <span class="required">*</span></label><input type="text" id="can-codigo-municipio" placeholder="2507507" required></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-danger" id="btn-cancelar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Solicitar Cancelamento
+              </button>
+              <div id="loading-cancelar" class="loading-overlay"><div class="spinner"></div> Processando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="result-cancelar" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title"><span class="result-status badge">—</span> Resposta do Cancelamento</div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-cancelar">📋 Copiar</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-cancelar" data-filename="cancelamento.xml">⬇ Baixar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body"><div class="result-box"><pre id="xml-resp-cancelar" class="xml-result-content"></pre></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: CONSULTAR POR COMPETÊNCIA
+══════════════════════════════════════════════ -->
+    <div id="page-consultar-competencia" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              ConsultarNfseServicoPrestado
+            </div>
+            <div class="card-subtitle">Lista todas as NFS-e emitidas pela empresa em uma competência (mês/ano).</div>
+          </div>
+          <span class="badge badge-info">Competência</span>
+        </div>
+        <div class="card-body">
+          <form id="form-consultar-competencia">
+            <div class="form-grid form-grid-3">
+              <div class="field">
+                <label for="cc-mes">Mês <span class="required">*</span></label>
+                <select id="cc-mes" required>
+                  <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                  <option value="3">Março</option><option value="4">Abril</option>
+                  <option value="5">Maio</option><option value="6">Junho</option>
+                  <option value="7">Julho</option><option value="8">Agosto</option>
+                  <option value="9">Setembro</option><option value="10">Outubro</option>
+                  <option value="11">Novembro</option><option value="12">Dezembro</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="cc-ano">Ano <span class="required">*</span></label>
+                <input type="number" id="cc-ano" min="2000" max="2100" required>
+              </div>
+              <div class="field">
+                <label for="cc-modo">Modo de busca</label>
+                <select id="cc-modo">
+                  <option value="todas">Todas as notas (automático)</option>
+                  <option value="pagina">Por página (50 por vez)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid form-grid-3" id="cc-pagina-row" style="display:none;margin-top:0">
+              <div class="field">
+                <label for="cc-pagina">Página</label>
+                <input type="number" id="cc-pagina" value="1" min="1">
+              </div>
+            </div>
+            <div class="form-grid form-grid-2" style="margin-top:0">
+              <div class="field">
+                <label for="cc-tipo">Papel da empresa <span class="required">*</span></label>
+                <select id="cc-tipo">
+                  <option value="prestado">Prestador — notas emitidas por mim</option>
+                  <option value="tomado">Tomador — notas emitidas para mim</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-consultar-competencia">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Consultar
+              </button>
+              <div id="loading-consultar-competencia" class="loading-overlay"><div class="spinner"></div> Consultando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="result-consultar-competencia" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title">
+              <span class="result-status badge">—</span>
+              NFS-e da Competência
+              <span id="cc-tipo-badge" style="font-size:11px;padding:2px 8px;border-radius:4px;margin-left:6px"></span>
+              <span id="cc-contador" style="font-size:12px;color:var(--text-muted);margin-left:8px"></span>
+            </div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-consultar-competencia">📋 Copiar XML</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-consultar-competencia" data-filename="consultar-competencia.xml">⬇ Baixar XML</button>
+              <button class="btn btn-sm btn-primary" id="btn-relatorio-fiscal" style="display:none">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Emitir Relatório Fiscal
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="cc-tabela-wrap" style="display:none;margin-bottom:16px">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nº NFS-e</th>
+                  <th>Emissão</th>
+                  <th id="cc-col-contraparte">Tomador</th>
+                  <th>Valor Serviços</th>
+                  <th>Valor Líquido</th>
+                  <th>Verificação</th>
+                </tr>
+              </thead>
+              <tbody id="cc-tabela-body"></tbody>
+            </table>
+          </div>
+          <div class="result-box"><pre id="xml-resp-consultar-competencia" class="xml-result-content"></pre></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: CADASTRO/EDIÇÃO DE EMPRESA
+═══════════════════════════════════════════════════════════════ -->
+<div id="modal-empresa" class="modal-backdrop" onclick="fecharModalEmpresaSe(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-empresa-title">Nova Empresa</h3>
+      <button class="modal-close" onclick="fecharModalEmpresa()">×</button>
+    </div>
+    <form id="form-empresa">
+      <div class="modal-body">
+        <div class="form-grid" style="gap:14px">
+          <div class="field">
+            <label for="campo-cnpj">CNPJ <span class="required">*</span> <span class="hint">(apenas números)</span></label>
+            <input type="text" id="campo-cnpj" placeholder="00000000000000" maxlength="14" required pattern="\d{14}">
+          </div>
+          <div class="field">
+            <label for="campo-razao-social">Razão Social <span class="required">*</span></label>
+            <input type="text" id="campo-razao-social" placeholder="Nome da empresa" required>
+          </div>
+          <div class="field">
+            <label for="campo-inscricao-municipal">Inscrição Municipal</label>
+            <input type="text" id="campo-inscricao-municipal" placeholder="Ex: 123456">
+          </div>
+          <div class="field">
+            <label for="campo-caminho-cert">Caminho do Certificado .pfx <span class="required">*</span></label>
+            <input type="text" id="campo-caminho-cert" placeholder="C:\certificados\empresa.pfx" required>
+          </div>
+          <div class="field">
+            <label for="campo-senha" id="campo-senha-label">Senha do Certificado <span class="required">*</span></label>
+            <input type="password" id="campo-senha" placeholder="Senha do arquivo .pfx">
+          </div>
+          <div class="alert alert-info" style="font-size:12px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>A senha é criptografada com Fernet antes de ser salva. Nunca é armazenada em texto claro.</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModalEmpresa()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-empresa">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Scripts -->
+<script src="/static/js/api.js?v=6"></script>
+<script src="/static/js/app.js?v=6"></script>
+<script src="/static/js/empresas.js?v=6"></script>
+<script src="/static/js/nfse.js?v=6"></script>
+<script>
+  // Fechar modal clicando no backdrop
+  function fecharModalEmpresaSe(e) {
+    if (e.target.id === 'modal-empresa') fecharModalEmpresa();
+  }
+
+  // Atualizar stat de ambiente no dashboard
+  document.addEventListener('DOMContentLoaded', () => {
+    const badge = document.getElementById('ambiente-badge');
+    const statAmbiente = document.getElementById('stat-ambiente');
+    if (statAmbiente && badge) {
+      const observer = new MutationObserver(() => {
+        statAmbiente.textContent = badge.textContent.replace(/[🟡🟢]/g, '').trim();
+      });
+      observer.observe(badge, { childList: true, characterData: true, subtree: true });
+    }
+  });
+</script>
+</body>
+</html>
