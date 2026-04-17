@@ -165,3 +165,28 @@ const NfseAPI = {
   /** Health check */
   health: () => apiFetch('/api/health')
 };
+
+// ─── Automação ────────────────────────────────────────────────────────────────
+
+const AutomacaoAPI = {
+  /**
+   * Executa a automação e retorna um Blob ZIP para download.
+   * Não usa apiFetch pois a resposta é binária.
+   */
+  executar: async (dados) => {
+    const response = await fetch(`${API_BASE}/api/automacao/executar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    if (!response.ok) {
+      let detalhe = `Erro HTTP ${response.status}`;
+      try { const j = await response.json(); detalhe = j.detail || detalhe; } catch (_) {}
+      throw new ApiError(detalhe, response.status, null);
+    }
+    const blob = await response.blob();
+    const filename = (response.headers.get('Content-Disposition') || '')
+      .match(/filename="([^"]+)"/)?.[1] || 'automacao.zip';
+    return { blob, filename };
+  },
+};

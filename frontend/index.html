@@ -55,35 +55,15 @@
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Emissão</div>
-      <div class="nav-item" data-page="lote-sincrono">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        Lote Síncrono
-      </div>
-      <div class="nav-item" data-page="lote-assincrono">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Lote Assíncrono
-      </div>
-      <div class="nav-item" data-page="gerar-nfse">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-        Gerar NFS-e
+      <div class="sidebar-section-title">Automação</div>
+      <div class="nav-item" data-page="automacao">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Executar Automação
       </div>
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Consultas</div>
-      <div class="nav-item" data-page="consultar-lote">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Consultar Lote
-      </div>
-      <div class="nav-item" data-page="consultar-rps">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Consultar por RPS
-      </div>
-      <div class="nav-item" data-page="consultar-faixa">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-        Consultar Faixa
-      </div>
+      <div class="sidebar-section-title">Consultas Manuais</div>
       <div class="nav-item" data-page="consultar-competencia">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Consultar Competência
@@ -91,14 +71,6 @@
       <div class="nav-item" data-page="consulta-retroativa">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M7.5 3.5A9 9 0 0 0 3 12"/><polyline points="1 10 3 12 5 10"/></svg>
         Consulta Retroativa
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">Ações</div>
-      <div class="nav-item" data-page="cancelar">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        Cancelar NFS-e
       </div>
     </div>
   </nav>
@@ -116,8 +88,8 @@
           <div class="stat-label">Empresas Cadastradas</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">7</div>
-          <div class="stat-label">Operações Disponíveis</div>
+          <div class="stat-value" id="stat-ativas">0</div>
+          <div class="stat-label">Empresas Ativas Automação</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="stat-ambiente">—</div>
@@ -136,11 +108,11 @@
         </div>
         <div class="card-body">
           <ol style="padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--text-secondary)">
-            <li><strong>Configure o ambiente:</strong> Copie <code>.env.example</code> para <code>.env</code>, gere uma SECRET_KEY Fernet e defina <code>AMBIENTE=homologacao</code>.</li>
-            <li><strong>Cadastre uma empresa:</strong> Clique no <kbd>+</kbd> ao lado do seletor de empresa no topo, informe o CNPJ, razão social, caminho do arquivo <code>.pfx</code> e a senha do certificado.</li>
-            <li><strong>Selecione a empresa ativa:</strong> Use o dropdown no cabeçalho. Todas as operações usarão o certificado desta empresa.</li>
-            <li><strong>Execute as operações:</strong> Navegue pelo menu lateral e preencha os formulários. Os XMLs são montados, assinados e enviados automaticamente.</li>
-            <li><strong>Analise os resultados:</strong> A resposta da prefeitura é exibida em XML formatado. Use os botões de copiar/baixar para salvar o comprovante.</li>
+            <li><strong>Configure o ambiente:</strong> Copie <code>.env.example</code> para <code>.env</code>, gere uma SECRET_KEY Fernet e defina <code>AMBIENTE=producao</code>.</li>
+            <li><strong>Cadastre as empresas:</strong> Acesse "Empresas" no menu, informe CNPJ, <strong>código interno</strong>, razão social, Inscrição Municipal, certificado <code>.pfx</code> e senha. Marque "Incluir na automação".</li>
+            <li><strong>Execute a automação:</strong> Acesse "Executar Automação", selecione a competência (mês/ano), marque as empresas desejadas e clique em "Executar Automação".</li>
+            <li><strong>Baixe o resultado:</strong> Ao concluir, um arquivo <code>.zip</code> é gerado com XMLs e Relatórios PDF organizados por empresa, modo (Prestador/Tomador/Retroativo) e competência.</li>
+            <li><strong>Consultas manuais:</strong> Use "Consultar Competência" ou "Consulta Retroativa" no menu para pesquisas pontuais de uma empresa específica.</li>
           </ol>
         </div>
       </div>
@@ -178,15 +150,17 @@
           <table>
             <thead>
               <tr>
+                <th>Código</th>
                 <th>CNPJ</th>
                 <th>Razão Social</th>
-                <th>Inscrição Municipal</th>
+                <th>Insc. Municipal</th>
                 <th>Certificado</th>
+                <th style="text-align:center">Automação</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody id="empresas-tbody">
-              <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Carregando...</td></tr>
+              <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -859,6 +833,97 @@
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: AUTOMAÇÃO
+    ══════════════════════════════════════════════ -->
+    <div id="page-automacao" class="page">
+
+      <!-- Configuração -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              Automação de Coleta NFS-e
+            </div>
+            <div class="card-subtitle">Coleta XMLs e gera relatórios PDF de todas as empresas selecionadas para a competência informada.</div>
+          </div>
+          <span class="badge badge-warning">Automação</span>
+        </div>
+        <div class="card-body">
+          <form id="form-automacao">
+            <div class="form-grid form-grid-3" style="align-items:end">
+              <div class="field">
+                <label for="auto-mes">Competência — Mês <span class="required">*</span></label>
+                <select id="auto-mes" required>
+                  <option value="1">01 — Janeiro</option><option value="2">02 — Fevereiro</option>
+                  <option value="3">03 — Março</option><option value="4">04 — Abril</option>
+                  <option value="5">05 — Maio</option><option value="6">06 — Junho</option>
+                  <option value="7">07 — Julho</option><option value="8">08 — Agosto</option>
+                  <option value="9">09 — Setembro</option><option value="10">10 — Outubro</option>
+                  <option value="11">11 — Novembro</option><option value="12">12 — Dezembro</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="auto-ano">Ano <span class="required">*</span></label>
+                <input type="number" id="auto-ano" min="2000" max="2100" placeholder="Ex: 2026" required>
+              </div>
+              <div class="form-actions" style="margin:0;padding:0">
+                <button type="submit" class="btn btn-primary" id="btn-executar-automacao" style="width:100%">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Executar Automação
+                </button>
+                <div id="loading-automacao" class="loading-overlay"><div class="spinner"></div> Processando empresas...</div>
+              </div>
+            </div>
+
+            <!-- Lista de empresas -->
+            <div style="margin-top:20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <label style="font-weight:600;font-size:13px">Empresas a processar</label>
+                <div style="display:flex;gap:8px">
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="toggleTodasEmpresas(true)">Marcar todas</button>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="toggleTodasEmpresas(false)">Desmarcar todas</button>
+                </div>
+              </div>
+              <div id="auto-empresas-lista" style="display:grid;gap:6px;max-height:280px;overflow-y:auto;padding:2px">
+                <div style="color:var(--text-muted);font-size:13px;padding:12px 0">Nenhuma empresa cadastrada.</div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Resultado / Download -->
+      <div id="auto-resultado" class="card" style="display:none">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Automação Concluída
+            </div>
+          </div>
+          <span id="auto-status-badge" class="badge badge-success">Sucesso</span>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+          <div id="auto-resumo" style="font-size:13px;color:var(--text-secondary)"></div>
+          <div>
+            <a id="auto-download-link" href="#" download style="display:none">
+              <button type="button" class="btn btn-primary" id="btn-baixar-zip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Baixar ZIP
+              </button>
+            </a>
+          </div>
+          <div id="auto-erros-wrap" style="display:none">
+            <div style="font-weight:600;font-size:12px;color:var(--danger,#dc2626);margin-bottom:6px">Erros encontrados:</div>
+            <pre id="auto-erros" style="font-size:11px;background:var(--bg);padding:10px;border-radius:6px;color:var(--danger,#dc2626);white-space:pre-wrap;max-height:200px;overflow-y:auto"></pre>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-automacao -->
+
   </main>
 </div>
 
@@ -877,6 +942,10 @@
           <div class="field">
             <label for="campo-cnpj">CNPJ <span class="required">*</span> <span class="hint">(apenas números)</span></label>
             <input type="text" id="campo-cnpj" placeholder="00000000000000" maxlength="14" required pattern="\d{14}">
+          </div>
+          <div class="field">
+            <label for="campo-codigo">Código Interno <span class="hint">(identificador no escritório)</span></label>
+            <input type="text" id="campo-codigo" placeholder="Ex: 001, ABC, CLIENTE-01">
           </div>
           <div class="field">
             <label for="campo-razao-social">Razão Social <span class="required">*</span></label>
@@ -902,6 +971,10 @@
             <label for="campo-senha" id="campo-senha-label">Senha do Certificado <span class="required">*</span></label>
             <input type="password" id="campo-senha" placeholder="Senha do arquivo .pfx">
           </div>
+          <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:4px">
+            <input type="checkbox" id="campo-ativo-automacao" style="width:16px;height:16px;cursor:pointer">
+            <label for="campo-ativo-automacao" style="margin:0;cursor:pointer;font-weight:500">Incluir na automação por padrão</label>
+          </div>
           <div class="alert alert-info" style="font-size:12px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <span>A senha é criptografada com Fernet antes de ser salva. Nunca é armazenada em texto claro.</span>
@@ -920,10 +993,11 @@
 <div id="toast-container"></div>
 
 <!-- Scripts -->
-<script src="/static/js/api.js?v=7"></script>
-<script src="/static/js/app.js?v=6"></script>
-<script src="/static/js/empresas.js?v=7"></script>
-<script src="/static/js/nfse.js?v=6"></script>
+<script src="/static/js/api.js?v=8"></script>
+<script src="/static/js/app.js?v=7"></script>
+<script src="/static/js/empresas.js?v=8"></script>
+<script src="/static/js/nfse.js?v=7"></script>
+<script src="/static/js/automacao.js?v=1"></script>
 <script>
   // Fechar modal clicando no backdrop
   function fecharModalEmpresaSe(e) {

@@ -26,10 +26,24 @@ logger = logging.getLogger(__name__)
 
 # Importar após load_dotenv para garantir que as variáveis estão disponíveis
 from database import engine, Base
-from routers import empresas, nfse, relatorio
+from routers import empresas, nfse, relatorio, automacao
 
 # Criar tabelas do banco de dados na inicialização
 Base.metadata.create_all(bind=engine)
+
+# Migração incremental: adicionar colunas novas sem Alembic
+_MIGRACOES = [
+    "ALTER TABLE empresas ADD COLUMN codigo VARCHAR(50)",
+    "ALTER TABLE empresas ADD COLUMN ativo_automacao BOOLEAN NOT NULL DEFAULT 1",
+]
+with engine.connect() as conn:
+    for sql in _MIGRACOES:
+        try:
+            conn.execute(__import__("sqlalchemy").text(sql))
+            conn.commit()
+        except Exception:
+            pass  # coluna já existe
+
 logger.info("Banco de dados inicializado.")
 
 # Verificar configuração crítica
@@ -73,6 +87,7 @@ app.add_middleware(
 app.include_router(empresas.router, prefix="/api/empresas", tags=["Empresas"])
 app.include_router(nfse.router, prefix="/api/nfse", tags=["NFS-e"])
 app.include_router(relatorio.router, prefix="/api/nfse", tags=["Relatório"])
+app.include_router(automacao.router, prefix="/api/automacao", tags=["Automação"])
 
 
 @app.get("/api/health", tags=["Sistema"])

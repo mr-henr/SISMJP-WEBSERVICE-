@@ -74,10 +74,12 @@ def criar_empresa(empresa: EmpresaCreate, db: Session = Depends(get_db)):
 
     db_empresa = models.Empresa(
         cnpj=empresa.cnpj,
+        codigo=empresa.codigo,
         razao_social=empresa.razao_social,
         inscricao_municipal=empresa.inscricao_municipal,
         caminho_certificado=empresa.caminho_certificado,
-        senha_certificado_encrypted=senha_encrypted
+        senha_certificado_encrypted=senha_encrypted,
+        ativo_automacao=empresa.ativo_automacao,
     )
     db.add(db_empresa)
     db.commit()
@@ -101,6 +103,9 @@ def atualizar_empresa(cnpj: str, dados: EmpresaUpdate, db: Session = Depends(get
     if not empresa:
         raise HTTPException(status_code=404, detail=f"Empresa com CNPJ {cnpj} não encontrada.")
 
+    if dados.codigo is not None:
+        empresa.codigo = dados.codigo or None
+
     if dados.razao_social is not None:
         empresa.razao_social = dados.razao_social
 
@@ -117,6 +122,9 @@ def atualizar_empresa(cnpj: str, dados: EmpresaUpdate, db: Session = Depends(get
 
     if dados.senha_certificado is not None:
         empresa.senha_certificado_encrypted = criptografar_senha(dados.senha_certificado)
+
+    if dados.ativo_automacao is not None:
+        empresa.ativo_automacao = dados.ativo_automacao
 
     db.commit()
     db.refresh(empresa)
