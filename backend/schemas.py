@@ -10,9 +10,11 @@ from datetime import datetime
 
 class EmpresaBase(BaseModel):
     cnpj: str = Field(..., min_length=14, max_length=14, description="CNPJ apenas com números")
+    codigo: Optional[str] = Field(None, max_length=50, description="Código interno no escritório")
     razao_social: str = Field(..., min_length=2, max_length=150)
     inscricao_municipal: Optional[str] = Field(None, max_length=20)
     caminho_certificado: str = Field(..., description="Caminho absoluto do .pfx no servidor")
+    ativo_automacao: bool = Field(True, description="Incluir na automação por padrão")
 
     @validator("cnpj")
     def cnpj_apenas_numeros(cls, v):
@@ -26,10 +28,12 @@ class EmpresaCreate(EmpresaBase):
 
 
 class EmpresaUpdate(BaseModel):
+    codigo: Optional[str] = None
     razao_social: Optional[str] = None
     inscricao_municipal: Optional[str] = None
     caminho_certificado: Optional[str] = None
     senha_certificado: Optional[str] = None
+    ativo_automacao: Optional[bool] = None
 
 
 class EmpresaResponse(EmpresaBase):
@@ -141,3 +145,9 @@ class ConsultaRetroativaRequest(BaseModel):
     inscricao_municipal: Optional[str] = None
     tipo: str = Field("prestado", description="prestado = empresa como prestador | tomado = empresa como tomador")
     buscar_todas: bool = Field(True, description="True = percorre todas as páginas automaticamente; False = apenas a página informada")
+
+
+class AutomacaoRequest(BaseModel):
+    competencia_mes: int = Field(..., ge=1, le=12)
+    competencia_ano: int = Field(..., ge=2000, le=2100)
+    cnpjs: Optional[list[str]] = Field(None, description="Lista de CNPJs a processar; None = todas as empresas ativas")

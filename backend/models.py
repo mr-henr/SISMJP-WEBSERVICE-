@@ -1,7 +1,7 @@
 """
 Modelos SQLAlchemy para o banco de dados.
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from sqlalchemy.sql import func
 from database import Base
 
@@ -16,6 +16,8 @@ class Empresa(Base):
     id = Column(Integer, primary_key=True, index=True)
     cnpj = Column(String(14), unique=True, nullable=False, index=True,
                   comment="CNPJ apenas com números (14 dígitos)")
+    codigo = Column(String(50), nullable=True,
+                    comment="Código interno da empresa no escritório")
     razao_social = Column(String(150), nullable=False)
     inscricao_municipal = Column(String(20), nullable=True,
                                  comment="Inscrição Municipal no município de João Pessoa")
@@ -23,6 +25,8 @@ class Empresa(Base):
                                  comment="Caminho absoluto do arquivo .pfx no servidor")
     senha_certificado_encrypted = Column(Text, nullable=False,
                                          comment="Senha do .pfx criptografada com Fernet")
+    ativo_automacao = Column(Boolean, nullable=False, default=True,
+                             comment="Empresa inclusa nas execuções automáticas por padrão")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

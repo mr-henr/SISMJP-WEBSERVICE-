@@ -11,7 +11,7 @@ function renderizarTabelaEmpresas() {
   if (!window.empresas || window.empresas.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5">
+        <td colspan="7">
           <div class="empty-state">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16M3 21h18M9 7h1M9 11h1M9 15h1M14 7h1M14 11h1M14 15h1"/>
@@ -26,6 +26,7 @@ function renderizarTabelaEmpresas() {
 
   tbody.innerHTML = window.empresas.map(emp => `
     <tr>
+      <td><code style="font-size:12px">${escapeHtml(emp.codigo || '—')}</code></td>
       <td class="cnpj-cell">${formatarCnpj(emp.cnpj)}</td>
       <td><strong>${escapeHtml(emp.razao_social)}</strong></td>
       <td>${escapeHtml(emp.inscricao_municipal || '—')}</td>
@@ -33,6 +34,15 @@ function renderizarTabelaEmpresas() {
         <span title="${escapeHtml(emp.caminho_certificado)}" style="font-family:monospace;font-size:11px;color:var(--text-muted)">
           ${escapeHtml(truncarTexto(emp.caminho_certificado, 40))}
         </span>
+      </td>
+      <td style="text-align:center">
+        <button type="button"
+          class="btn btn-sm ${emp.ativo_automacao ? 'btn-primary' : 'btn-secondary'}"
+          onclick="toggleAtivoAutomacao('${emp.cnpj}', ${emp.ativo_automacao})"
+          title="${emp.ativo_automacao ? 'Ativa na automação — clique para desativar' : 'Inativa na automação — clique para ativar'}"
+          style="min-width:72px;font-size:11px">
+          ${emp.ativo_automacao ? '✓ Ativa' : '✗ Inativa'}
+        </button>
       </td>
       <td class="actions-cell">
         <button class="btn btn-sm btn-secondary" onclick="abrirModalEdicao('${emp.cnpj}')">
@@ -85,12 +95,14 @@ function abrirModalNovaEmpresa() {
   document.getElementById('modal-empresa-title').textContent = 'Nova Empresa';
   document.getElementById('form-empresa').reset();
   document.getElementById('campo-cnpj').disabled = false;
+  document.getElementById('campo-codigo').value = '';
   document.getElementById('campo-senha-label').textContent = 'Senha do Certificado *';
   document.getElementById('campo-senha').required = true;
   document.getElementById('campo-cert-file').value = '';
   document.getElementById('campo-caminho-cert').value = '';
   document.getElementById('cert-nome').textContent = 'Nenhum arquivo selecionado';
   document.getElementById('cert-nome').className = 'cert-nome';
+  document.getElementById('campo-ativo-automacao').checked = true;
   document.getElementById('modal-empresa').classList.add('open');
 }
 
@@ -101,6 +113,7 @@ function abrirModalEdicao(cnpj) {
   document.getElementById('modal-empresa-title').textContent = 'Editar Empresa';
   document.getElementById('campo-cnpj').value = emp.cnpj;
   document.getElementById('campo-cnpj').disabled = true;
+  document.getElementById('campo-codigo').value = emp.codigo || '';
   document.getElementById('campo-razao-social').value = emp.razao_social;
   document.getElementById('campo-inscricao-municipal').value = emp.inscricao_municipal || '';
   document.getElementById('campo-caminho-cert').value = emp.caminho_certificado;
@@ -111,6 +124,7 @@ function abrirModalEdicao(cnpj) {
   document.getElementById('campo-senha').value = '';
   document.getElementById('campo-senha').required = false;
   document.getElementById('campo-senha-label').textContent = 'Senha do Certificado (deixe em branco para manter)';
+  document.getElementById('campo-ativo-automacao').checked = emp.ativo_automacao !== false;
   document.getElementById('modal-empresa').classList.add('open');
 }
 
@@ -139,8 +153,10 @@ document.getElementById('form-empresa')?.addEventListener('submit', async (e) =>
 
   const dados = {
     razao_social: document.getElementById('campo-razao-social').value.trim(),
+    codigo: document.getElementById('campo-codigo').value.trim() || null,
     inscricao_municipal: document.getElementById('campo-inscricao-municipal').value.trim() || null,
     caminho_certificado: caminhoCert,
+    ativo_automacao: document.getElementById('campo-ativo-automacao').checked,
   };
 
   const senha = document.getElementById('campo-senha').value;
@@ -182,6 +198,18 @@ async function deletarEmpresa(cnpj, nome) {
     await EmpresasAPI.deletar(cnpj);
     showToast(`Empresa ${nome} removida.`, 'success');
     await carregarEmpresas();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ─── Toggle Ativo Automação ───────────────────────────────────────────────────
+
+async function toggleAtivoAutomacao(cnpj, atualAtivo) {
+  try {
+    await EmpresasAPI.atualizar(cnpj, { ativo_automacao: !atualAtivo });
+    await carregarEmpresas();
+    if (typeof renderizarListaEmpresasAutomacao === 'function') renderizarListaEmpresasAutomacao();
   } catch (err) {
     showToast(err.message, 'error');
   }

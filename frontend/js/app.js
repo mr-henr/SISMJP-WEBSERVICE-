@@ -10,10 +10,23 @@ window.empresas = [];
 // ─── Inicialização ────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Pré-preencher ano e mês atual nos formulários de automação e competência
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtual = hoje.getMonth() + 1;
+  ['auto-ano'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = anoAtual;
+  });
+  ['auto-mes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = mesAtual;
+  });
+
   await carregarAmbiente();
   await carregarEmpresas();
   inicializarNavegacao();
-  navigate('dashboard');
+  navigate('automacao');
 });
 
 async function carregarAmbiente() {
@@ -41,6 +54,7 @@ async function carregarEmpresas() {
     preencherInscricaoMunicipal();
     renderizarTabelaEmpresas();
     atualizarDashboard();
+    document.dispatchEvent(new Event('empresas-carregadas'));
   } catch (e) {
     console.error('Erro ao carregar empresas:', e);
   }
@@ -102,8 +116,10 @@ function navigate(pageId) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function atualizarDashboard() {
-  const el = document.getElementById('stat-empresas');
-  if (el) el.textContent = window.empresas.length;
+  const elTotal = document.getElementById('stat-empresas');
+  if (elTotal) elTotal.textContent = window.empresas.length;
+  const elAtivas = document.getElementById('stat-ativas');
+  if (elAtivas) elAtivas.textContent = window.empresas.filter(e => e.ativo_automacao !== false).length;
 }
 
 // ─── Funções de UI: Toast ─────────────────────────────────────────────────────
