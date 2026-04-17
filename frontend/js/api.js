@@ -92,7 +92,17 @@ const EmpresasAPI = {
     method: 'DELETE'
   }),
 
-  buscar: (cnpj) => apiFetch(`/api/empresas/${cnpj}`)
+  buscar: (cnpj) => apiFetch(`/api/empresas/${cnpj}`),
+
+  uploadCertificado: async (formData) => {
+    const response = await fetch(`${API_BASE}/api/empresas/upload-certificado`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+    if (!response.ok) throw new ApiError(data?.detail || `Erro HTTP ${response.status}`, response.status, data);
+    return data;
+  }
 };
 
 // ─── NFS-e ────────────────────────────────────────────────────────────────────

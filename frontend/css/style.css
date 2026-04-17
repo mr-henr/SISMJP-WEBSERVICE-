@@ -300,6 +300,21 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 textarea { resize: vertical; min-height: 80px; }
 select { cursor: pointer; }
 
+.cert-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cert-nome {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cert-nome.cert-ok { color: var(--success, #38a169); font-weight: 600; }
+.cert-nome.cert-erro { color: var(--error); }
+
 .section-divider {
   font-size: 12px;
   font-weight: 700;

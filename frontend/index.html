@@ -779,8 +779,16 @@
             <input type="text" id="campo-inscricao-municipal" placeholder="Ex: 123456">
           </div>
           <div class="field">
-            <label for="campo-caminho-cert">Caminho do Certificado .pfx <span class="required">*</span></label>
-            <input type="text" id="campo-caminho-cert" placeholder="C:\certificados\empresa.pfx" required>
+            <label>Certificado .pfx <span class="required">*</span></label>
+            <input type="file" id="campo-cert-file" accept=".pfx" style="display:none">
+            <div class="cert-picker">
+              <button type="button" class="btn btn-secondary" id="btn-selecionar-cert" onclick="selecionarCertificado()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Selecionar Certificado
+              </button>
+              <span id="cert-nome" class="cert-nome">Nenhum arquivo selecionado</span>
+            </div>
+            <input type="hidden" id="campo-caminho-cert">
           </div>
           <div class="field">
             <label for="campo-senha" id="campo-senha-label">Senha do Certificado <span class="required">*</span></label>
@@ -804,9 +812,9 @@
 <div id="toast-container"></div>
 
 <!-- Scripts -->
-<script src="/static/js/api.js?v=6"></script>
+<script src="/static/js/api.js?v=7"></script>
 <script src="/static/js/app.js?v=6"></script>
-<script src="/static/js/empresas.js?v=6"></script>
+<script src="/static/js/empresas.js?v=7"></script>
 <script src="/static/js/nfse.js?v=6"></script>
 <script>
   // Fechar modal clicando no backdrop

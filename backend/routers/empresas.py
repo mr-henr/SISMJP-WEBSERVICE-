@@ -1,13 +1,17 @@
 """
 Router de Empresas: CRUD completo para gerenciamento das empresas cadastradas.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+from pathlib import Path
+import shutil
 
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+CERT_DIR = Path(os.path.dirname(os.path.dirname(__file__))) / "certificados"
 
 from database import get_db
 import models
@@ -15,6 +19,21 @@ from schemas import EmpresaCreate, EmpresaResponse, EmpresaUpdate
 from crypto import criptografar_senha
 
 router = APIRouter()
+
+
+@router.post("/upload-certificado")
+async def upload_certificado(arquivo: UploadFile = File(...)):
+    """Recebe um arquivo .pfx, salva em backend/certificados/ e retorna o caminho absoluto."""
+    if not arquivo.filename.lower().endswith(".pfx"):
+        raise HTTPException(status_code=400, detail="Apenas arquivos .pfx são permitidos.")
+
+    CERT_DIR.mkdir(parents=True, exist_ok=True)
+    destino = CERT_DIR / arquivo.filename
+
+    with open(destino, "wb") as f:
+        shutil.copyfileobj(arquivo.file, f)
+
+    return {"caminho": str(destino.resolve()), "nome": arquivo.filename}
 
 
 @router.get("/", response_model=List[EmpresaResponse])

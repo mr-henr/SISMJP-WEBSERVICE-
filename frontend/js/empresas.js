@@ -50,12 +50,47 @@ function renderizarTabelaEmpresas() {
 
 // ─── Modal Nova Empresa ───────────────────────────────────────────────────────
 
+function selecionarCertificado() {
+  document.getElementById('campo-cert-file').click();
+}
+
+document.getElementById('campo-cert-file')?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const nomeEl = document.getElementById('cert-nome');
+  const btn = document.getElementById('btn-selecionar-cert');
+
+  nomeEl.textContent = 'Enviando...';
+  nomeEl.className = 'cert-nome';
+  setLoading(btn, null, true);
+
+  try {
+    const formData = new FormData();
+    formData.append('arquivo', file);
+    const result = await EmpresasAPI.uploadCertificado(formData);
+    document.getElementById('campo-caminho-cert').value = result.caminho;
+    nomeEl.textContent = result.nome;
+    nomeEl.className = 'cert-nome cert-ok';
+  } catch (err) {
+    nomeEl.textContent = 'Erro ao enviar arquivo';
+    nomeEl.className = 'cert-nome cert-erro';
+    showToast(err.message, 'error');
+  } finally {
+    setLoading(btn, null, false);
+  }
+});
+
 function abrirModalNovaEmpresa() {
   document.getElementById('modal-empresa-title').textContent = 'Nova Empresa';
   document.getElementById('form-empresa').reset();
   document.getElementById('campo-cnpj').disabled = false;
   document.getElementById('campo-senha-label').textContent = 'Senha do Certificado *';
   document.getElementById('campo-senha').required = true;
+  document.getElementById('campo-cert-file').value = '';
+  document.getElementById('campo-caminho-cert').value = '';
+  document.getElementById('cert-nome').textContent = 'Nenhum arquivo selecionado';
+  document.getElementById('cert-nome').className = 'cert-nome';
   document.getElementById('modal-empresa').classList.add('open');
 }
 
@@ -69,6 +104,10 @@ function abrirModalEdicao(cnpj) {
   document.getElementById('campo-razao-social').value = emp.razao_social;
   document.getElementById('campo-inscricao-municipal').value = emp.inscricao_municipal || '';
   document.getElementById('campo-caminho-cert').value = emp.caminho_certificado;
+  document.getElementById('campo-cert-file').value = '';
+  const nomeAtual = emp.caminho_certificado.split(/[\\/]/).pop();
+  document.getElementById('cert-nome').textContent = nomeAtual;
+  document.getElementById('cert-nome').className = 'cert-nome cert-ok';
   document.getElementById('campo-senha').value = '';
   document.getElementById('campo-senha').required = false;
   document.getElementById('campo-senha-label').textContent = 'Senha do Certificado (deixe em branco para manter)';
@@ -91,10 +130,17 @@ document.getElementById('form-empresa')?.addEventListener('submit', async (e) =>
   // Se o campo CNPJ está desabilitado, é edição; senão, é criação
   const ehEdicao = document.getElementById('campo-cnpj').disabled;
 
+  const caminhoCert = document.getElementById('campo-caminho-cert').value.trim();
+  if (!caminhoCert) {
+    showToast('Selecione o arquivo de certificado .pfx.', 'error');
+    setLoading(btn, null, false);
+    return;
+  }
+
   const dados = {
     razao_social: document.getElementById('campo-razao-social').value.trim(),
     inscricao_municipal: document.getElementById('campo-inscricao-municipal').value.trim() || null,
-    caminho_certificado: document.getElementById('campo-caminho-cert').value.trim(),
+    caminho_certificado: caminhoCert,
   };
 
   const senha = document.getElementById('campo-senha').value;
