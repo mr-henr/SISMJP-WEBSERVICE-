@@ -399,3 +399,161 @@ function _renderizarTabelaCompetencia(xmlStr, tipo = 'prestado') {
     // silencioso: tabela é opcional, XML já está exibido
   }
 }
+
+// Mostrar/esconder campo de página conforme modo selecionado (retroativa)
+document.getElementById('cr-modo')?.addEventListener('change', (e) => {
+  const row = document.getElementById('cr-pagina-row');
+  if (row) row.style.display = e.target.value === 'pagina' ? '' : 'none';
+});
+
+// ─── 9. Consulta Retroativa ───────────────────────────────────────────────────
+
+document.getElementById('form-consulta-retroativa')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const ano = parseInt(document.getElementById('cr-ano')?.value || '0', 10);
+  const mes = parseInt(document.getElementById('cr-mes')?.value || '1', 10);
+  const tipo = document.getElementById('cret-tipo')?.value || 'prestado';
+  const modo = document.getElementById('cr-modo')?.value || 'todas';
+  const buscarTodas = modo === 'todas';
+  if (!ano || ano < 2000) {
+    showToast('Informe um ano válido.', 'error');
+    return;
+  }
+  const dados = {
+    competencia_mes: mes,
+    competencia_ano: ano,
+    pagina: buscarTodas ? 1 : parseInt(document.getElementById('cr-pagina')?.value || '1', 10),
+    tipo,
+    buscar_todas: buscarTodas,
+  };
+
+  if (!verificarEmpresaAtiva()) return;
+  const btn = document.getElementById('btn-consultar-retroativo');
+  const loading = document.getElementById('loading-consultar-retroativo');
+  setLoading(btn, loading, true);
+  limparResultado('result-consulta-retroativa');
+  document.getElementById('cr-tabela-wrap').style.display = 'none';
+  document.getElementById('cr-contador').textContent = '';
+  document.getElementById('cr-tipo-badge').textContent = '';
+
+  try {
+    const resultado = await NfseAPI.consultaRetroativa(dados);
+    exibirResultado('result-consulta-retroativa', resultado, resultado.sucesso !== false);
+    if (resultado.xml_resposta) {
+      _renderizarTabelaRetroativa(resultado.xml_resposta, tipo, mes, ano);
+    }
+  } catch (err) {
+    exibirResultado('result-consulta-retroativa', { xml_resposta: err.message, erro: err.message }, false);
+  } finally {
+    setLoading(btn, loading, false);
+  }
+});
+
+function _mesAnoRetroativos(mes, ano) {
+  const resultado = [];
+  for (let i = 1; i <= 6; i++) {
+    let m = mes - i;
+    let a = ano;
+    while (m <= 0) { m += 12; a--; }
+    resultado.push({ mes: m, ano: a });
+  }
+  return resultado;
+}
+
+function _renderizarTabelaRetroativa(xmlStr, tipo = 'prestado', mesSelecionado, anoSelecionado) {
+  try {
+    const isPrestado = tipo === 'prestado';
+
+    // Atualizar badge e cabeçalho antes de qualquer early-return
+    const badge = document.getElementById('cr-tipo-badge');
+    if (badge) {
+      badge.textContent = isPrestado ? 'PRESTADOR' : 'TOMADOR';
+      badge.style.background = isPrestado ? 'var(--success-bg, #d1fae5)' : 'var(--info-bg, #dbeafe)';
+      badge.style.color = isPrestado ? 'var(--success, #065f46)' : 'var(--info, #1e40af)';
+    }
+    const col = document.getElementById('cr-col-contraparte');
+    if (col) col.textContent = isPrestado ? 'Tomador' : 'Prestador';
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlStr, 'application/xml');
+    const notas = doc.querySelectorAll('CompNfse Nfse InfNfse, InfNfse');
+    if (!notas.length) return;
+
+    const tbody = document.getElementById('cr-tabela-body');
+    const wrap = document.getElementById('cr-tabela-wrap');
+    if (!tbody || !wrap) return;
+
+    const retroativos = _mesAnoRetroativos(mesSelecionado, anoSelecionado);
+
+    tbody.innerHTML = '';
+    let ativas = 0, canceladas = 0, ignoradas = 0;
+
+    const MESES_PT = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    notas.forEach(inf => {
+      const situacao = inf.querySelector('Situacao')?.textContent?.trim();
+      const compNfse = inf.closest('CompNfse') ?? inf.parentElement?.parentElement?.parentElement;
+      const estaCancelada = situacao === '2' || !!(compNfse?.querySelector('NfseCancelamento'));
+      if (estaCancelada) { canceladas++; return; }
+
+      // Filtrar por competência retroativa
+      const competenciaRaw = inf.querySelector('Competencia')?.textContent?.trim()
+                          || inf.querySelector('DataCompetencia')?.textContent?.trim() || '';
+      const partes = competenciaRaw.match(/(\d{4})-(\d{2})/);
+      if (!partes) { ignoradas++; return; }
+      const anoComp = parseInt(partes[1]);
+      const mesComp = parseInt(partes[2]);
+      const eRetroativa = retroativos.some(r => r.mes === mesComp && r.ano === anoComp);
+      if (!eRetroativa) { ignoradas++; return; }
+
+      // Para tomado: a emissão deve cair no mês selecionado E o CNPJ tomador deve
+      // ser o da empresa ativa (garante resultado correto independente do WS)
+      const get = (tag) => inf.querySelector(tag)?.textContent?.trim() || '—';
+      if (!isPrestado) {
+        const emissaoRaw = get('DataEmissao');
+        const emissaoM = emissaoRaw.match(/(\d{4})-(\d{2})/);
+        if (emissaoM) {
+          const anoEmissao = parseInt(emissaoM[1]);
+          const mesEmissao = parseInt(emissaoM[2]);
+          if (anoEmissao !== anoSelecionado || mesEmissao !== mesSelecionado) { ignoradas++; return; }
+        }
+        // Se a empresa aparece como PRESTADOR nesta nota, ela não é o tomador — descartar
+        const cnpjEmpresa = (window.empresaAtivaCnpj || '').replace(/\D/g, '');
+        const prestadorCnpj = (inf.querySelector('PrestadorServico IdentificacaoPrestador CpfCnpj Cnpj, PrestadorServico CpfCnpj Cnpj')?.textContent || '').trim().replace(/\D/g, '');
+        if (cnpjEmpresa && prestadorCnpj && prestadorCnpj === cnpjEmpresa) { ignoradas++; return; }
+      }
+
+      ativas++;
+      const numero = get('Numero');
+      const emissao = get('DataEmissao').replace('T', ' ').substring(0, 16);
+      const competenciaLabel = `${String(mesComp).padStart(2, '0')}/${anoComp}`;
+
+      let contraparte;
+      if (isPrestado) {
+        contraparte = inf.querySelector('TomadorServico RazaoSocial')?.textContent?.trim()
+                   || inf.querySelector('Tomador RazaoSocial')?.textContent?.trim() || '—';
+      } else {
+        contraparte = inf.querySelector('PrestadorServico RazaoSocial')?.textContent?.trim()
+                   || inf.querySelector('Prestador RazaoSocial')?.textContent?.trim() || '—';
+      }
+
+      const valorServicos = parseFloat(get('ValorServicos') || '0').toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const valorLiquido = parseFloat(get('ValorLiquidoNfse') || '0').toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const codigo = get('CodigoVerificacao');
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${numero}</td><td>${emissao}</td><td style="font-weight:500">${competenciaLabel}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${contraparte}">${contraparte}</td><td>${valorServicos}</td><td>${valorLiquido}</td><td style="font-family:monospace;font-size:11px">${codigo}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    wrap.style.display = 'block';
+    const totalBruto = ativas + canceladas + ignoradas;
+    const extras = [];
+    if (canceladas > 0) extras.push(`${canceladas} cancelada(s) ocultada(s)`);
+    if (ignoradas > 0) extras.push(`${ignoradas} ignorada(s)`);
+    const info = extras.length ? ` (${extras.join(', ')})` : '';
+    document.getElementById('cr-contador').textContent = `— ${ativas} nota(s) retroativa(s) de ${totalBruto} total${info}`;
+  } catch (e) {
+    // silencioso: tabela é opcional, XML já está exibido
+  }
+}

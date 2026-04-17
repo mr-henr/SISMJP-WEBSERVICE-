@@ -156,6 +156,12 @@ const NfseAPI = {
     body: JSON.stringify(dados)
   }),
 
+  /** Consulta Retroativa — notas emitidas no mês selecionado com competência em meses anteriores */
+  consultaRetroativa: (dados) => apiFetch('/api/nfse/consultar-retroativo', {
+    method: 'POST',
+    body: JSON.stringify(dados)
+  }),
+
   /** Health check */
   health: () => apiFetch('/api/health')
 };

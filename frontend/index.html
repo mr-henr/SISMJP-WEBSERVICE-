@@ -88,6 +88,10 @@
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Consultar Competência
       </div>
+      <div class="nav-item" data-page="consulta-retroativa">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M7.5 3.5A9 9 0 0 0 3 12"/><polyline points="1 10 3 12 5 10"/></svg>
+        Consulta Retroativa
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -747,6 +751,110 @@
             </table>
           </div>
           <div class="result-box"><pre id="xml-resp-consultar-competencia" class="xml-result-content"></pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         PÁGINA: CONSULTA RETROATIVA
+══════════════════════════════════════════════ -->
+    <div id="page-consulta-retroativa" class="page">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M7.5 3.5A9 9 0 0 0 3 12"/><polyline points="1 10 3 12 5 10"/></svg>
+              Consulta Retroativa
+            </div>
+            <div class="card-subtitle">Retorna notas emitidas dentro do mês selecionado cujas competências pertencem aos 6 meses anteriores.</div>
+          </div>
+          <span class="badge badge-warning">Retroativa</span>
+        </div>
+        <div class="card-body">
+          <form id="form-consulta-retroativa">
+            <div class="form-grid form-grid-3">
+              <div class="field">
+                <label for="cr-mes">Mês <span class="required">*</span></label>
+                <select id="cr-mes" required>
+                  <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+                  <option value="3">Março</option><option value="4">Abril</option>
+                  <option value="5">Maio</option><option value="6">Junho</option>
+                  <option value="7">Julho</option><option value="8">Agosto</option>
+                  <option value="9">Setembro</option><option value="10">Outubro</option>
+                  <option value="11">Novembro</option><option value="12">Dezembro</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="cr-ano">Ano <span class="required">*</span></label>
+                <input type="number" id="cr-ano" min="2000" max="2100" required>
+              </div>
+              <div class="field">
+                <label for="cr-modo">Modo de busca</label>
+                <select id="cr-modo">
+                  <option value="todas">Todas as notas (automático)</option>
+                  <option value="pagina">Por página (50 por vez)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid form-grid-3" id="cr-pagina-row" style="display:none;margin-top:0">
+              <div class="field">
+                <label for="cr-pagina">Página</label>
+                <input type="number" id="cr-pagina" value="1" min="1">
+              </div>
+            </div>
+            <div class="form-grid form-grid-2" style="margin-top:0">
+              <div class="field">
+                <label for="cret-tipo">Papel da empresa <span class="required">*</span></label>
+                <select id="cret-tipo">
+                  <option value="prestado">Prestador — notas emitidas por mim</option>
+                  <option value="tomado">Tomador — notas emitidas para mim</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btn-consultar-retroativo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Consultar
+              </button>
+              <div id="loading-consultar-retroativo" class="loading-overlay"><div class="spinner"></div> Consultando...</div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="result-consulta-retroativa" class="card result-area">
+        <div class="card-header">
+          <div class="result-header" style="width:100%">
+            <div class="result-title">
+              <span class="result-status badge">—</span>
+              NFS-e Retroativas
+              <span id="cr-tipo-badge" style="font-size:11px;padding:2px 8px;border-radius:4px;margin-left:6px"></span>
+              <span id="cr-contador" style="font-size:12px;color:var(--text-muted);margin-left:8px"></span>
+            </div>
+            <div class="result-actions">
+              <button class="btn btn-sm btn-secondary" data-copy-from="xml-resp-consulta-retroativa">📋 Copiar XML</button>
+              <button class="btn btn-sm btn-secondary" data-download-from="xml-resp-consulta-retroativa" data-filename="consulta-retroativa.xml">⬇ Baixar XML</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="cr-tabela-wrap" style="display:none;margin-bottom:16px">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nº NFS-e</th>
+                  <th>Emissão</th>
+                  <th>Competência</th>
+                  <th id="cr-col-contraparte">Tomador</th>
+                  <th>Valor Serviços</th>
+                  <th>Valor Líquido</th>
+                  <th>Verificação</th>
+                </tr>
+              </thead>
+              <tbody id="cr-tabela-body"></tbody>
+            </table>
+          </div>
+          <div class="result-box"><pre id="xml-resp-consulta-retroativa" class="xml-result-content"></pre></div>
         </div>
       </div>
     </div>

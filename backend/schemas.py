@@ -132,3 +132,12 @@ class ConsultarServicoPrestadoRequest(BaseModel):
     inscricao_municipal: Optional[str] = None
     tipo: str = Field("prestado", description="prestado = empresa como prestador | tomado = empresa como tomador")
     buscar_todas: bool = Field(True, description="True = percorre todas as páginas automaticamente; False = apenas a página informada")
+
+
+class ConsultaRetroativaRequest(BaseModel):
+    competencia_mes: int = Field(..., ge=1, le=12, description="Mês da competência selecionada (1-12)")
+    competencia_ano: int = Field(..., ge=2000, le=2100, description="Ano da competência selecionada")
+    pagina: int = Field(1, ge=1)
+    inscricao_municipal: Optional[str] = None
+    tipo: str = Field("prestado", description="prestado = empresa como prestador | tomado = empresa como tomador")
+    buscar_todas: bool = Field(True, description="True = percorre todas as páginas automaticamente; False = apenas a página informada")

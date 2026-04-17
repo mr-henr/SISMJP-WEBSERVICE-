@@ -26,14 +26,15 @@ from xml_builder import (
     build_lote_rps_sincrono, build_lote_rps_assincrono,
     build_consultar_lote, build_consultar_por_rps,
     build_consultar_faixa, build_cancelar_nfse, build_gerar_nfse,
-    build_consultar_servico_prestado, build_consultar_servico_tomado
+    build_consultar_servico_prestado, build_consultar_servico_tomado,
+    build_consultar_retroativo_prestado, build_consultar_retroativo_tomado,
 )
 from xml_signer import assinar_xml
 from soap_client import chamar_webservice
 from schemas import (
     LoteRpsRequest, ConsultarLoteRequest, ConsultarPorRpsRequest,
     ConsultarFaixaRequest, CancelarNfseRequest, GerarNfseRequest,
-    ConsultarServicoPrestadoRequest
+    ConsultarServicoPrestadoRequest, ConsultaRetroativaRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -175,6 +176,92 @@ def _buscar_todas_paginas(
         "status_code": 200,
         "erro": None,
     }
+
+
+# ─── Helpers de filtragem retroativa ─────────────────────────────────────────
+
+def _cnpj_de_paths(root, paths: list) -> str:
+    """Tenta extrair um CNPJ (14 dígitos) percorrendo uma lista de XPaths lxml."""
+    for path in paths:
+        el = root.find(path)
+        if el is not None and el.text:
+            return el.text.strip().replace(".", "").replace("/", "").replace("-", "")
+    return ""
+
+
+def _e_cancelada(root, NS: str) -> bool:
+    sit = root.find(".//Situacao") or root.find(f".//{{{NS}}}Situacao")
+    if sit is not None and (sit.text or "").strip() == "2":
+        return True
+    return (
+        root.find(".//NfseCancelamento") is not None
+        or root.find(f".//{{{NS}}}NfseCancelamento") is not None
+    )
+
+
+def _filtrar_comps_retroativo(
+    comps_xml: list,
+    NS: str,
+    cnpj_empresa: str,
+    verificar_tomador: bool,
+    emissao_mes: int,
+    emissao_ano: int,
+) -> list:
+    """
+    Filtra lista de CompNfse (strings XML) server-side:
+      - Remove notas canceladas (Situacao=2 ou NfseCancelamento presente)
+      - Se emissao_mes/ano informado: remove notas com DataEmissao fora desse mês
+      - Se verificar_tomador=True: remove notas cujo TomadorServico CNPJ ≠ cnpj_empresa
+    """
+    resultado = []
+    for comp_xml in comps_xml:
+        try:
+            root = lx.fromstring(comp_xml.encode("utf-8"))
+        except Exception:
+            resultado.append(comp_xml)
+            continue
+
+        if _e_cancelada(root, NS):
+            continue
+
+        if emissao_mes and emissao_ano:
+            emissao_ok = True
+            for path in [".//DataEmissao", f".//{{{NS}}}DataEmissao"]:
+                el = root.find(path)
+                if el is not None and el.text:
+                    emissao_ok = el.text.strip()[:7] == f"{emissao_ano:04d}-{emissao_mes:02d}"
+                    break
+            if not emissao_ok:
+                continue
+
+        if verificar_tomador and cnpj_empresa:
+            # Verificar pelo CNPJ do tomador (ABRASF padrão e variante JP)
+            tomador_cnpj = _cnpj_de_paths(root, [
+                ".//TomadorServico/IdentificacaoTomador/CpfCnpj/Cnpj",
+                ".//TomadorServico/CpfCnpj/Cnpj",
+                ".//Tomador/IdentificacaoTomador/CpfCnpj/Cnpj",
+                ".//Tomador/CpfCnpj/Cnpj",
+                f".//{{{NS}}}TomadorServico/{{{NS}}}IdentificacaoTomador/{{{NS}}}CpfCnpj/{{{NS}}}Cnpj",
+                f".//{{{NS}}}Tomador/{{{NS}}}IdentificacaoTomador/{{{NS}}}CpfCnpj/{{{NS}}}Cnpj",
+            ])
+            if tomador_cnpj:
+                if tomador_cnpj != cnpj_empresa:
+                    continue  # CNPJ tomador não é a empresa consultada
+            else:
+                # Tomador usa CPF ou CNPJ não encontrado: se a empresa é o PRESTADOR,
+                # esta nota foi emitida PELA empresa, não PARA ela → descartar
+                prestador_cnpj = _cnpj_de_paths(root, [
+                    ".//PrestadorServico/IdentificacaoPrestador/CpfCnpj/Cnpj",
+                    ".//PrestadorServico/CpfCnpj/Cnpj",
+                    f".//{{{NS}}}PrestadorServico/{{{NS}}}IdentificacaoPrestador/{{{NS}}}CpfCnpj/{{{NS}}}Cnpj",
+                    f".//{{{NS}}}PrestadorServico/{{{NS}}}CpfCnpj/{{{NS}}}Cnpj",
+                ])
+                if prestador_cnpj and prestador_cnpj == cnpj_empresa:
+                    continue  # Empresa é o PRESTADOR, não TOMADOR → descarta
+
+        resultado.append(comp_xml)
+
+    return resultado
 
 
 # ─── 1. RecepcionarLoteRpsSincrono ────────────────────────────────────────────
@@ -333,6 +420,200 @@ def consultar_servico_prestado(
         )
     xml_str, ref_id = build_consultar_servico_prestado(dados, cnpj, im)
     return _executar_operacao("ConsultarNfseServicoPrestado", xml_str, ref_id, cnpj, db)
+
+
+# ─── 9. ConsultaRetroativa (notas emitidas no mês selecionado com competência anterior) ──
+
+def _buscar_retroativo_prestado(
+    dados: ConsultaRetroativaRequest,
+    cnpj: str,
+    im: str,
+    db: Session
+) -> dict:
+    """
+    Prestado retroativo: filtra por PeriodoEmissao (mês selecionado).
+    Extrai CompNfse mesmo quando o WS retorna HTTP não-200, pois alguns
+    servidores sinalizam 'fim de registros' com status de erro mas ainda
+    incluem notas no corpo da resposta.
+    """
+    try:
+        cert = carregar_certificado(cnpj, db)
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    todos_comps_xml: list[str] = []
+    NS = "http://nfse.abrasf.org.br"
+    ultimo_resultado: dict = {}
+
+    for pagina in range(1, 201):
+        dados.pagina = pagina
+        xml_str, ref_id = build_consultar_retroativo_prestado(dados, cnpj, im)
+
+        try:
+            xml_assinado = assinar_xml(xml_str, cert.private_key, cert.certificate, ref_id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao assinar XML: {e}")
+
+        try:
+            resultado = chamar_webservice("ConsultarNfseServicoPrestado", xml_assinado, cert)
+        except Exception as e:
+            if pagina == 1:
+                raise HTTPException(status_code=502, detail=str(e))
+            break
+
+        ultimo_resultado = resultado
+        xml_resp = resultado.get("xml_resposta", "")
+
+        try:
+            root = lx.fromstring(xml_resp.encode("utf-8"))
+            comps = root.findall(".//CompNfse") or root.findall(f".//{{{NS}}}CompNfse")
+        except Exception:
+            comps = []
+
+        if comps:
+            todos_comps_xml.extend(lx.tostring(c, encoding="unicode") for c in comps)
+
+        # Parar se: erro do WS, sem notas, ou última página (< 50)
+        if not resultado.get("sucesso") or not comps or len(comps) < 50:
+            if not todos_comps_xml:
+                # Nenhuma nota encontrada em nenhuma página — retorna erro real
+                return resultado
+            break
+
+    # Remover canceladas server-side (frontend também filtra, mas aqui é mais limpo)
+    todos_comps_xml = _filtrar_comps_retroativo(
+        todos_comps_xml, NS, cnpj,
+        verificar_tomador=False,
+        emissao_mes=0, emissao_ano=0,
+    )
+
+    lista_root = lx.Element("ListaNfse")
+    for comp_xml in todos_comps_xml:
+        lista_root.append(lx.fromstring(comp_xml))
+    xml_combinado = lx.tostring(lista_root, encoding="unicode")
+
+    logger.info(f"[RetroativoPrestado] {len(todos_comps_xml)} nota(s) após filtro.")
+    return {
+        "sucesso": True,
+        "xml_enviado": ultimo_resultado.get("xml_enviado", ""),
+        "xml_resposta": xml_combinado,
+        "status_code": 200,
+        "erro": None,
+    }
+
+
+def _buscar_retroativo_tomado(
+    dados: ConsultaRetroativaRequest,
+    cnpj: str,
+    db: Session
+) -> dict:
+    """
+    Tomado retroativo: consulta cada uma das 6 competências anteriores com
+    PeriodoCompetencia (método comprovado para tomado). O frontend filtra
+    pela data de emissão que cai dentro do mês selecionado.
+    """
+    try:
+        cert = carregar_certificado(cnpj, db)
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    todos_comps_xml: list[str] = []
+    NS = "http://nfse.abrasf.org.br"
+
+    for i in range(1, 7):
+        # Calcular o mês retroativo i
+        mes_retro = dados.competencia_mes - i
+        ano_retro = dados.competencia_ano
+        while mes_retro <= 0:
+            mes_retro += 12
+            ano_retro -= 1
+
+        # Reutilizar ConsultarServicoPrestadoRequest apenas como portador dos campos
+        dados_mes = ConsultarServicoPrestadoRequest(
+            competencia_mes=mes_retro,
+            competencia_ano=ano_retro,
+            pagina=1,
+            tipo="tomado",
+            buscar_todas=True,
+        )
+
+        for pagina in range(1, 201):
+            dados_mes.pagina = pagina
+            xml_str, ref_id = build_consultar_servico_tomado(dados_mes, cnpj, None)
+
+            try:
+                xml_assinado = assinar_xml(xml_str, cert.private_key, cert.certificate, ref_id)
+            except Exception:
+                break
+
+            try:
+                resultado = chamar_webservice("ConsultarNfseServicoTomado", xml_assinado, cert)
+            except Exception:
+                break
+
+            if not resultado.get("sucesso"):
+                break
+
+            xml_resp = resultado.get("xml_resposta", "")
+            try:
+                root = lx.fromstring(xml_resp.encode("utf-8"))
+                comps = root.findall(".//CompNfse") or root.findall(f".//{{{NS}}}CompNfse")
+            except Exception:
+                comps = []
+
+            if not comps:
+                break
+
+            todos_comps_xml.extend(lx.tostring(c, encoding="unicode") for c in comps)
+            if len(comps) < 50:
+                break
+
+    # Filtros server-side:
+    #   1. Remove canceladas
+    #   2. Emissão deve cair no mês/ano selecionado
+    #   3. TomadorServico CNPJ deve ser da empresa consultada
+    total_bruto = len(todos_comps_xml)
+    todos_comps_xml = _filtrar_comps_retroativo(
+        todos_comps_xml, NS, cnpj,
+        verificar_tomador=True,
+        emissao_mes=dados.competencia_mes,
+        emissao_ano=dados.competencia_ano,
+    )
+
+    lista_root = lx.Element("ListaNfse")
+    for comp_xml in todos_comps_xml:
+        lista_root.append(lx.fromstring(comp_xml))
+    xml_combinado = lx.tostring(lista_root, encoding="unicode")
+
+    logger.info(
+        f"[RetroativoTomado] {len(todos_comps_xml)} nota(s) após filtro "
+        f"(de {total_bruto} coletada(s) em 6 competências)."
+    )
+    return {
+        "sucesso": True,
+        "xml_enviado": "",
+        "xml_resposta": xml_combinado,
+        "status_code": 200,
+        "erro": None,
+    }
+
+
+@router.post("/consultar-retroativo")
+def consultar_retroativo(
+    dados: ConsultaRetroativaRequest,
+    db: Session = Depends(get_db),
+    cnpj: str = Depends(_get_cnpj_header)
+):
+    """
+    Consulta NFS-e retroativas:
+    - Prestado: filtra por PeriodoEmissao no mês selecionado; frontend filtra por competência.
+    - Tomado: consulta as 6 competências anteriores com PeriodoCompetencia; frontend filtra por emissão.
+    """
+    if dados.tipo == "tomado":
+        return _buscar_retroativo_tomado(dados, cnpj, db)
+
+    im = _get_im(cnpj, db, dados.inscricao_municipal)
+    return _buscar_retroativo_prestado(dados, im=im, cnpj=cnpj, db=db)
 
 
 # ─── Utilitário: inspecionar WSDL ────────────────────────────────────────────

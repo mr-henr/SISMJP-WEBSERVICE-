@@ -306,3 +306,48 @@ def build_consultar_servico_tomado(dados, cnpj_tomador: str, inscricao_municipal
 
     xml_str = etree.tostring(root, encoding="unicode", xml_declaration=False)
     return xml_str, ""
+
+
+def build_consultar_retroativo_prestado(dados, cnpj_prestador: str, inscricao_municipal: str) -> Tuple[str, str]:
+    """Monta XML para ConsultarNfseServicoPrestado com filtro de PeriodoEmissao (para consulta retroativa)."""
+    root = _elem("ConsultarNfseServicoPrestadoEnvio")
+
+    prestador = _add(root, "Prestador")
+    _build_cpfcnpj(prestador, cnpj=cnpj_prestador)
+    _add(prestador, "InscricaoMunicipal", inscricao_municipal)
+
+    ultimo_dia = calendar.monthrange(dados.competencia_ano, dados.competencia_mes)[1]
+    data_inicial = f"{dados.competencia_ano:04d}-{dados.competencia_mes:02d}-01"
+    data_final = f"{dados.competencia_ano:04d}-{dados.competencia_mes:02d}-{ultimo_dia:02d}"
+
+    periodo = _add(root, "PeriodoEmissao")
+    _add(periodo, "DataInicial", data_inicial)
+    _add(periodo, "DataFinal", data_final)
+
+    _add(root, "Pagina", str(dados.pagina))
+
+    xml_str = etree.tostring(root, encoding="unicode", xml_declaration=False)
+    return xml_str, ""
+
+
+def build_consultar_retroativo_tomado(dados, cnpj_tomador: str, inscricao_municipal: Optional[str] = None) -> Tuple[str, str]:
+    """Monta XML para ConsultarNfseServicoTomado com filtro de PeriodoEmissao (para consulta retroativa)."""
+    root = _elem("ConsultarNfseServicoTomadoEnvio")
+
+    tomador = _add(root, "Tomador")
+    _build_cpfcnpj(tomador, cnpj=cnpj_tomador)
+    if inscricao_municipal:
+        _add(tomador, "InscricaoMunicipal", inscricao_municipal)
+
+    ultimo_dia = calendar.monthrange(dados.competencia_ano, dados.competencia_mes)[1]
+    data_inicial = f"{dados.competencia_ano:04d}-{dados.competencia_mes:02d}-01"
+    data_final = f"{dados.competencia_ano:04d}-{dados.competencia_mes:02d}-{ultimo_dia:02d}"
+
+    periodo = _add(root, "PeriodoEmissao")
+    _add(periodo, "DataInicial", data_inicial)
+    _add(periodo, "DataFinal", data_final)
+
+    _add(root, "Pagina", str(dados.pagina))
+
+    xml_str = etree.tostring(root, encoding="unicode", xml_declaration=False)
+    return xml_str, ""
